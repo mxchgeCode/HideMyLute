@@ -55,7 +55,7 @@ from .config import (
     PBKDF2_SALT_SIZE,
 )
 from .crypto import decrypt_aes_gcm, derive_key, encrypt_aes_gcm
-from .exceptions import FooterError
+from .exceptions import FooterError, OperationCancelled
 
 
 def pack_footer(
@@ -362,8 +362,6 @@ def sha256_region(
     Raises:
         OperationCancelled: Если событие отмены установлено.
     """
-    from .exceptions import OperationCancelled
-
     sha256 = hashlib.sha256()
     with open(filepath, "rb") as fh:
         fh.seek(start)
