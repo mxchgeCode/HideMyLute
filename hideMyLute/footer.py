@@ -144,10 +144,7 @@ def unpack_footer(
     )
 
     if magic != MAGIC_BYTES:
-        raise FooterError(
-            "Футер hideMyLute не найден в файле "
-            "(неверная сигнатура)"
-        )
+        raise FooterError("Футер hideMyLute не найден в файле (неверная сигнатура)", msg_key="error_no_footer")
 
     if version != FOOTER_VERSION:
         raise FooterError(

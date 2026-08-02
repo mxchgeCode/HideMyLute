@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 from pathlib import Path
 
 import pytest
@@ -39,7 +38,7 @@ class TestAppConfig:
         assert config_ru.t("tab_split") == "Разделение"
         assert config_ru.t("join_btn") == "Соединить"
         assert config_ru.t("split_btn") == "Разделить"
-        assert config_ru.t("status_ready") == "Готов"
+        assert config_ru.t("status_ready_join") == "Готов к соединению"
 
     def test_translation_en(self, config_en: AppConfig) -> None:
         """Английская локализация: корректный перевод."""
@@ -48,7 +47,7 @@ class TestAppConfig:
         assert config_en.t("tab_split") == "Split"
         assert config_en.t("join_btn") == "Join"
         assert config_en.t("split_btn") == "Split"
-        assert config_en.t("status_ready") == "Ready"
+        assert config_en.t("status_ready_join") == "Ready to join"
 
     def test_translation_fallback_for_missing_language(
         self,
@@ -76,10 +75,16 @@ class TestAppConfig:
         """Неизвестный ключ: возвращается сам ключ."""
         assert config_ru.t("nonexistent_key") == "nonexistent_key"
 
-    def test_config_is_frozen(self, config_ru: AppConfig) -> None:
-        """Frozen dataclass: изменение поля вызывает исключение."""
-        with pytest.raises(dataclasses.FrozenInstanceError):
-            config_ru.logging_enabled = True  # type: ignore[misc]
+    def test_set_language(self, config_ru: AppConfig) -> None:
+        """set_language() меняет язык и переводы обновляются."""
+        config_ru.set_language("en")
+        assert config_ru.language == "en"
+        assert config_ru.t("tab_join") == "Join"
+        assert config_ru.t("status_ready_join") == "Ready to join"
+
+        config_ru.set_language("ru")
+        assert config_ru.language == "ru"
+        assert config_ru.t("tab_join") == "Соединение"
 
     def test_config_fields(self, config_ru: AppConfig) -> None:
         """Проверка значений полей конфигурации."""

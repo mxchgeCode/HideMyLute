@@ -1,8 +1,27 @@
 """Пользовательские исключения для hideMyLute."""
 
+from __future__ import annotations
+
+from typing import Any
+
 
 class HideMyLuteError(Exception):
-    """Базовое исключение приложения."""
+    """Базовое исключение приложения.
+
+    Attributes:
+        msg_key: Ключ для перевода сообщения через AppConfig.t().
+        msg_kwargs: Аргументы для форматирования перевода.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        msg_key: str | None = None,
+        **msg_kwargs: Any,
+    ) -> None:
+        super().__init__(message)
+        self.msg_key = msg_key
+        self.msg_kwargs = msg_kwargs
 
 
 class CryptoError(HideMyLuteError):

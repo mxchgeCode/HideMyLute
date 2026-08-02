@@ -41,7 +41,7 @@ def derive_key(password: str, salt: bytes | None = None) -> tuple[bytes, bytes]:
         CryptoError: При ошибке деривации ключа.
     """
     if not password:
-        raise CryptoError("Пароль не может быть пустым")
+        raise CryptoError("Пароль не может быть пустым", msg_key="error_password_empty")
 
     if salt is None:
         salt = os.urandom(PBKDF2_SALT_SIZE)
@@ -140,6 +140,4 @@ def decrypt_aes_gcm(
         plaintext = aesgcm.decrypt(nonce, ciphertext, associated_data)
         return plaintext
     except Exception as exc:
-        raise CryptoError(
-            "Неверный пароль или данные повреждены"
-        ) from exc
+        raise CryptoError("Неверный пароль или данные повреждены", msg_key="error_wrong_password") from exc

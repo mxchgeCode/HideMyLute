@@ -6,6 +6,7 @@ from typing import Any
 
 import customtkinter as ctk
 
+from .. import __version__
 from ..config import AppConfig
 from ..logging_config import setup_logging
 from ..worker import BackgroundWorker
@@ -21,7 +22,7 @@ class MainWindow(ctk.CTk):
     и прогресс-оверлеем.
     """
 
-    APP_TITLE = "hideMyLute"
+    APP_NAME = "hideMyLute"
     WINDOW_WIDTH = 520
     WINDOW_HEIGHT = 580
 
@@ -34,7 +35,7 @@ class MainWindow(ctk.CTk):
 
         Args:
             config: Конфигурация приложения (DI). Если None,
-                    создаётся AppConfig по умолчанию.
+                    создаётся AppConfig с умолчаниями.
         """
         super().__init__(**kwargs)
 
@@ -55,7 +56,8 @@ class MainWindow(ctk.CTk):
 
     def _setup_window(self) -> None:
         """Настраивает параметры окна."""
-        self.title(self.APP_TITLE)
+        title = f"{self.APP_NAME} v{__version__}"
+        self.title(title)
         self.geometry(f"{self.WINDOW_WIDTH}x{self.WINDOW_HEIGHT}")
         self.minsize(480, 500)
 
@@ -134,11 +136,12 @@ class MainWindow(ctk.CTk):
         )
         self._lang_frame.place(relx=1.0, rely=0.0, x=-10, y=5, anchor="ne")
 
-        ctk.CTkLabel(
+        self._lang_label = ctk.CTkLabel(
             self._lang_frame,
             text=t("language_label"),
             font=ctk.CTkFont(size=11),
-        ).pack(side="left", padx=(0, 5))
+        )
+        self._lang_label.pack(side="left", padx=(0, 5))
 
         self._lang_switch = ctk.CTkSegmentedButton(
             self._lang_frame,
@@ -150,20 +153,40 @@ class MainWindow(ctk.CTk):
         self._lang_switch.set("RU" if self._config.language == "ru" else "EN")
 
     def _on_language_changed(self, value: str) -> None:
-        """Обработчик смены языка."""
+        """Обработчик смены языка — обновляет только тексты, данные сохраняются."""
         new_lang = "ru" if value == "RU" else "en"
         if new_lang == self._config.language:
             return
 
-        # AppConfig frozen — создаём новый
-        new_config = AppConfig(language=new_lang)
-        self._config = new_config
+        current_name = self._tabview.get()
+        self._config.set_language(new_lang)
+        t = self._config.t
 
-        # Разбираем и перестраиваем UI
-        self._lang_frame.destroy()
-        self._tabview.destroy()
-        self._status_bar.destroy()
-        self._build_ui()
+        # Обновление имён вкладок
+        old_names = list(self._tabview._tab_dict.keys())
+        new_join = t("tab_join")
+        new_split = t("tab_split")
+        tab_map = dict(zip(old_names, [new_join, new_split]))
+        for old_name, new_name in tab_map.items():
+            self._tabview._tab_dict[new_name] = self._tabview._tab_dict.pop(old_name)
+        self._tabview._segmented_button.configure(values=[new_join, new_split])
+
+        # Восстановление активной вкладки
+        self._tabview.set(tab_map.get(current_name, new_join))
+
+        # Обновление текстов в панелях
+        self._join_panel.update_language()
+        self._split_panel.update_language()
+
+        # Обновление метки языка
+        self._lang_label.configure(text=t("language_label"))
+
+        # Пересчёт статуса активной вкладки
+        current = self._tabview.get()
+        if current == new_join:
+            self._join_panel.refresh_status()
+        else:
+            self._split_panel.refresh_status()
 
     def _set_status(self, text: str) -> None:
         """Устанавливает текст статус-бара."""

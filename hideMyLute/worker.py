@@ -37,7 +37,7 @@ class BackgroundWorker:
         self,
         target: Callable[..., Any],
         on_success: Callable[[Any], None],
-        on_error: Callable[[str], None],
+        on_error: Callable[[Any], None],
         on_finish: Callable[[], None] | None = None,
         root=None,
         args: tuple[Any, ...] | None = None,
@@ -50,7 +50,7 @@ class BackgroundWorker:
             on_success: Вызывается в основном потоке при успехе,
                         получает результат target.
             on_error: Вызывается в основном потоке при ошибке,
-                      получает строку с сообщением.
+                      получает HideMyLuteError (с msg_key) или str.
             on_finish: Вызывается в основном потоке в любом случае
                        после on_success/on_error.
             root: Корневой виджет tkinter для root.after().
@@ -73,7 +73,7 @@ class BackgroundWorker:
                 elif not self._cancelled:
                     on_success(result)
             except HideMyLuteError as exc:
-                self._report_error(on_error, str(exc), root)
+                self._report_error(on_error, exc, root)
             except Exception as exc:
                 msg = (
                     f"Неожиданная ошибка: {exc}\n\n"
@@ -103,8 +103,8 @@ class BackgroundWorker:
 
     def _report_error(
         self,
-        on_error: Callable[[str], None],
-        message: str,
+        on_error: Callable[[Any], None],
+        message: Any,
         root=None,
     ) -> None:
         """Сообщает об ошибке через callback в основном потоке."""

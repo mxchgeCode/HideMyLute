@@ -1,7 +1,8 @@
-"""Конфигурация приложения hideMyLute — frozen dataclass + переводы.
+"""Конфигурация приложения hideMyLute — dataclass + переводы.
 
-Предоставляет единый иммутабельный объект конфигурации, внедряемый
+Предоставляет единый конфигурационный объект, внедряемый
 через конструкторы (Dependency Injection) во все компоненты.
+Язык может быть изменён в рантайме через set_language().
 """
 
 from __future__ import annotations
@@ -75,6 +76,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "status_processing": "Обработка...",
         "status_completed_join": "Готово: файл сохранён",
         "status_completed_split": "Готово: контейнер извлечён",
+        "password_mismatch": "Пароли не совпадают",
         "language_label": "Язык:",
     },
     "en": {
@@ -112,18 +114,20 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "status_processing": "Processing...",
         "status_completed_join": "Done: file saved",
         "status_completed_split": "Done: container extracted",
+        "password_mismatch": "Passwords do not match",
         "language_label": "Language:",
     },
 }
 
 
-@dataclass(frozen=True)
+@dataclass
 class AppConfig:
-    """Иммутабельная конфигурация приложения.
+    """Конфигурация приложения.
 
     Внедряется через конструкторы компонентов (Dependency Injection).
     Все поля имеют разумные умолчания для production-запуска,
     но могут быть переопределены при создании.
+    Язык может быть изменён в рантайме через set_language().
 
     Attributes:
         language: Код языка интерфейса ('ru' или 'en').
@@ -137,6 +141,14 @@ class AppConfig:
 
     # Переводы на лету не меняются — это константы класса
     _TRANSLATIONS: ClassVar[dict[str, dict[str, str]]] = TRANSLATIONS
+
+    def set_language(self, language: str) -> None:
+        """Устанавливает язык интерфейса.
+
+        Args:
+            language: Код языка ('ru' или 'en').
+        """
+        object.__setattr__(self, "language", language)
 
     def t(self, key: str, **kwargs: str) -> str:
         """Возвращает переведённую строку по ключу.

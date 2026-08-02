@@ -33,7 +33,7 @@ class FileSelector(ctk.CTkFrame):
             file_types: Кортеж типов файлов для диалога
                         (("Описание", "*.ext"), ...).
         """
-        super().__init__(parent, **kwargs)
+        super().__init__(parent, fg_color="transparent", **kwargs)
 
         self._file_types = file_types or (
             ("Все файлы", "*.*"),
@@ -41,12 +41,13 @@ class FileSelector(ctk.CTkFrame):
 
         self.path_var = ctk.StringVar()
 
-        ctk.CTkLabel(self, text=label, anchor="w").pack(
-            fill="x", padx=5, pady=(10, 2)
+        self._label = ctk.CTkLabel(self, text=label, anchor="w")
+        self._label.pack(
+            fill="x", padx=0, pady=(10, 2)
         )
 
         row = ctk.CTkFrame(self, fg_color="transparent")
-        row.pack(fill="x", padx=5, pady=(0, 5))
+        row.pack(fill="x", padx=0, pady=(0, 5))
 
         ctk.CTkEntry(
             row,
@@ -54,12 +55,23 @@ class FileSelector(ctk.CTkFrame):
             state="readonly",
         ).pack(side="left", fill="x", expand=True, padx=(0, 5))
 
-        ctk.CTkButton(
+        self._browse_btn = ctk.CTkButton(
             row,
             text=browse_text,
             width=80,
             command=self._browse,
-        ).pack(side="right")
+        )
+        self._browse_btn.pack(side="right")
+
+    def update_labels(self, label: str, browse_text: str) -> None:
+        """Обновляет тексты метки и кнопки (для смены языка).
+
+        Args:
+            label: Новый текст метки.
+            browse_text: Новый текст кнопки обзора.
+        """
+        self._label.configure(text=label)
+        self._browse_btn.configure(text=browse_text)
 
     def _browse(self) -> None:
         """Открывает диалог выбора файла."""
@@ -104,22 +116,31 @@ class PasswordField(ctk.CTkFrame):
             trace_callback: Callback при изменении пароля
                             (вызывается с *args от StringVar.trace).
         """
-        super().__init__(parent, **kwargs)
+        super().__init__(parent, fg_color="transparent", **kwargs)
 
         self.password_var = ctk.StringVar()
 
-        ctk.CTkLabel(self, text=label, anchor="w").pack(
-            fill="x", padx=5, pady=(10, 2)
+        self._label = ctk.CTkLabel(self, text=label, anchor="w")
+        self._label.pack(
+            fill="x", padx=0, pady=(10, 2)
         )
 
         ctk.CTkEntry(
             self,
             textvariable=self.password_var,
             show="•",
-        ).pack(fill="x", padx=5, pady=(0, 2))
+        ).pack(fill="x", padx=0, pady=(0, 2))
 
         if trace_callback:
             self.password_var.trace_add("write", trace_callback)
+
+    def update_label(self, label: str) -> None:
+        """Обновляет текст метки (для смены языка).
+
+        Args:
+            label: Новый текст метки.
+        """
+        self._label.configure(text=label)
 
 
 class StatusBar(ctk.CTkFrame):
