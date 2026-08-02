@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,7 @@ class MainWindow(ctk.CTk):
         setup_logging(
             enabled=self._config.logging_enabled,
             log_file=self._config.log_file,
+            level=logging.INFO,
         )
 
         self._worker = BackgroundWorker()

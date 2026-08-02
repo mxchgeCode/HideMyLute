@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import os
+import time
 import uuid
 from enum import Enum, auto
 from pathlib import Path
@@ -23,6 +24,9 @@ from .exceptions import (
     ValidationError,
 )
 from .footer import pack_footer, read_footer_size, sha256_region, unpack_footer
+from .logging_config import get_logger
+
+logger = get_logger("steganography")
 
 
 class NamingStrategy(Enum):
@@ -164,6 +168,12 @@ def join_files(
         )
 
     tmp = output.with_name(output.name + ".part")
+    start = time.monotonic()
+    logger.info(
+        "join: start carrier_size=%d container_size=%d",
+        carrier.stat().st_size,
+        container.stat().st_size,
+    )
     try:
         # 1. Копируем носитель
         _copy_file(carrier, tmp, cancel_event)
@@ -193,19 +203,26 @@ def join_files(
 
         # 4. Атомарная публикация результата
         tmp.replace(output)
+        logger.info(
+            "join: done output_size=%d elapsed=%.3fs",
+            output.stat().st_size,
+            time.monotonic() - start,
+        )
         return output
 
     except OSError as exc:
         # Никаких улик при сбое: удаляем временный файл
         tmp.unlink(missing_ok=True)
+        logger.error("join: failed (%s)", type(exc).__name__)
         raise FileOperationError(
             f"Ошибка при соединении файлов: {exc}",
             msg_key="error_join_failed",
             error=str(exc),
         ) from exc
-    except BaseException:
+    except BaseException as exc:
         # Никаких улик при сбое или отмене: удаляем временный файл
         tmp.unlink(missing_ok=True)
+        logger.error("join: aborted (%s)", type(exc).__name__)
         raise
 
 
@@ -243,6 +260,7 @@ def split_file(
     """
     combined = Path(combined_path)
     out_dir = Path(output_dir)
+    start = time.monotonic()
 
     if not combined.exists():
         raise ValidationError(
@@ -318,16 +336,23 @@ def split_file(
     except OSError as exc:
         # Удаляем частичный файл контейнера при ошибке записи
         container_path.unlink(missing_ok=True)
+        logger.error("split: failed (%s)", type(exc).__name__)
         raise FileOperationError(
             f"Ошибка при извлечении контейнера: {exc}",
             msg_key="error_extract_failed",
             error=str(exc),
         ) from exc
-    except BaseException:
+    except BaseException as exc:
         # Удаляем частичный файл контейнера при отмене
         container_path.unlink(missing_ok=True)
+        logger.error("split: aborted (%s)", type(exc).__name__)
         raise
 
+    logger.info(
+        "split: done container_size=%d elapsed=%.3fs",
+        container_size,
+        time.monotonic() - start,
+    )
     return container_path, metadata
 
 

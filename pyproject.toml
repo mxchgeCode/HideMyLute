@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hideMyLute"
+version = "2.0.4"
+description = "Инструмент стеганографии для правдоподобного отрицания"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "hideMyLute contributors" }]
+keywords = ["steganography", "privacy", "plausible-deniability"]
+dependencies = [
+    "cryptography>=50.0.0",
+    "customtkinter>=6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.1",
+    "pyinstaller>=6.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["hideMyLute*"]
+
+[tool.pytest.ini_options]
+testpaths = ["hideMyLute/tests"]
+addopts = "-ra"
+markers = [
+    "slow: медленные нагрузочные тесты (запуск с --run-slow)",
+]
+
+[tool.coverage.run]
+branch = true
+omit = [
+    "hideMyLute/tests/*",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+exclude = ["build", "dist", ".venv"]
+
+[tool.ruff.lint.per-file-ignores]
+# Имя пакета — устоявшийся бренд, не соответствует snake_case
+"hideMyLute/**" = ["N999"]
+# Тесты: NamedTemporaryFile без with — осознанно (Windows не даёт удалить открытый файл)
+"hideMyLute/tests/**" = ["SIM115"]
+# Воркер: перехват Exception как последняя инстанция с traceback для пользователя
+"hideMyLute/worker.py" = ["BLE001"]

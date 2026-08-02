@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install system Tcl/Tk (для customtkinter)
+        run: sudo apt-get update && sudo apt-get install -y python3-tk
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Lint (ruff)
+        run: ruff check hideMyLute/ version_info.py
+      - name: Tests with coverage
+        run: |
+          pytest --cov=hideMyLute --cov-report=term-missing --cov-fail-under=80
+
+  build:
+    name: Build (PyInstaller onefile)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Smoke test (версия и roundtrip)
+        run: |
+          python -m hideMyLute --version
+          python -m pytest hideMyLute/tests/ -q -k "cli or roundtrip"
+      - name: Build executable
+        run: pyinstaller --noconfirm hideMyLute.spec
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hideMyLute.exe
+          path: dist/hideMyLute.exe
