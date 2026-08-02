@@ -97,7 +97,14 @@ class MainWindow(ctk.CTk):
 
         self._tabview.add(t("tab_join"))
         self._tabview.add(t("tab_split"))
-        self._tabview._segmented_button.configure(height=48)
+
+        # Workaround: публичного API для высоты вкладок нет (customtkinter 6.0).
+        # Обращение защищено try/except — при изменении внутренностей
+        # библиотеки приложение не упадёт.
+        try:
+            self._tabview._segmented_button.configure(height=48)
+        except AttributeError:
+            pass
 
         # Вкладка «Соединение»
         self._join_panel = JoinPanel(
@@ -159,21 +166,31 @@ class MainWindow(ctk.CTk):
         if new_lang == self._config.language:
             return
 
-        current_name = self._tabview.get()
         self._config.set_language(new_lang)
+        self._apply_language_switch()
+
+    def _apply_language_switch(self) -> None:
+        """Применяет смену языка ко всем текстам интерфейса.
+
+        Использует только публичный API CTkTabview (rename/get), без
+        обращения к приватным атрибутам библиотеки.
+        """
         t = self._config.t
 
-        # Обновление имён вкладок
-        old_names = list(self._tabview._tab_dict.keys())
-        new_join = t("tab_join")
-        new_split = t("tab_split")
-        tab_map = dict(zip(old_names, [new_join, new_split]))
+        old_names = [
+            self._tabview.get(0),
+            self._tabview.get(1),
+        ]
+        new_names = [t("tab_join"), t("tab_split")]
+        tab_map = dict(zip(old_names, new_names))
+
+        current_name = self._tabview.get()
         for old_name, new_name in tab_map.items():
-            self._tabview._tab_dict[new_name] = self._tabview._tab_dict.pop(old_name)
-        self._tabview._segmented_button.configure(values=[new_join, new_split])
+            if old_name != new_name:
+                self._tabview.rename(old_name, new_name)
 
         # Восстановление активной вкладки
-        self._tabview.set(tab_map.get(current_name, new_join))
+        self._tabview.set(tab_map.get(current_name, new_names[0]))
 
         # Обновление текстов в панелях
         self._join_panel.update_language()
@@ -184,7 +201,7 @@ class MainWindow(ctk.CTk):
 
         # Пересчёт статуса активной вкладки
         current = self._tabview.get()
-        if current == new_join:
+        if current == new_names[0]:
             self._join_panel.refresh_status()
         else:
             self._split_panel.refresh_status()
