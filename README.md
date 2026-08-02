@@ -1,4 +1,5 @@
 # hideMyLute
+![](resources/666.jpg)
 
 Инструмент стеганографии для «правдоподобного отрицания» (plausible deniability).
 
@@ -97,13 +98,13 @@ python -m hideMyLute --version
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ Payload: footer_data_len байт                     │
-│  = salt(32) || AES-256-GCM(JSON {                 │
+│ Payload: footer_data_len байт                    │
+│  = salt(32) || AES-256-GCM(JSON {                │
 │      carrier_size, container_size,               │
 │      carrier_hash_sha256, timestamp              │
-│    })                                             │
+│    })                                            │
 ├──────────────────────────────────────────────────┤
-│ Заголовок (12 байт, последние в файле):           │
+│ Заголовок (12 байт, последние в файле):          │
 │  magic(b'HMLF') || version || flags || data_len  │
 └──────────────────────────────────────────────────┘
 ```
