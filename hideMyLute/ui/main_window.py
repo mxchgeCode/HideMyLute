@@ -44,7 +44,10 @@ class MainWindow(ctk.CTk):
             config = AppConfig()
 
         self._config = config
-        setup_logging(self._config)
+        setup_logging(
+            enabled=self._config.logging_enabled,
+            log_file=self._config.log_file,
+        )
 
         self._worker = BackgroundWorker()
 

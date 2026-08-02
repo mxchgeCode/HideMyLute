@@ -2,6 +2,9 @@
 
 Поддерживает полное отключение логирования (флаг logging_enabled=False)
 для исключения любых следов работы программы на диске.
+
+Функция setup_logging идемпотентна: повторные вызовы не накапливают
+дублирующиеся хэндлеры.
 """
 
 from __future__ import annotations
@@ -25,19 +28,25 @@ def setup_logging(
     """Настраивает логирование приложения.
 
     При enabled=False никакие сообщения не выводятся ни в консоль,
-    ни в файл — для режима «без следов».
+    ни в файл — для режима «без следов» (устанавливается NullHandler).
 
     Args:
         enabled: Включить логирование. По умолчанию False.
-        log_file: Путь к файлу лога. Если None, используется
-                  stdout (только при enabled=True).
+        log_file: Путь к файлу лога. Если None, используется stderr
+                  (только при enabled=True).
         level: Минимальный уровень логирования.
     """
     root_logger = logging.getLogger("hideMyLute")
 
+    # Идемпотентность: сбрасываем все существующие хэндлеры
+    for handler in list(root_logger.handlers):
+        root_logger.removeHandler(handler)
+        handler.close()
+
     if not enabled:
         # Полное отключение — добавляем NullHandler
         root_logger.addHandler(logging.NullHandler())
+        root_logger.setLevel(logging.CRITICAL)
         root_logger.propagate = False
         return
 
@@ -51,9 +60,15 @@ def setup_logging(
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
     else:
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setFormatter(formatter)
-        root_logger.addHandler(stream_handler)
+        # В windowed-сборках sys.stdout/sys.stderr могут быть None —
+        # в этом случае сообщения молча отбрасываются (без следов)
+        target = sys.stderr or sys.stdout
+        if target is None:
+            root_logger.addHandler(logging.NullHandler())
+        else:
+            stream_handler = logging.StreamHandler(target)
+            stream_handler.setFormatter(formatter)
+            root_logger.addHandler(stream_handler)
 
     root_logger.propagate = False
 
