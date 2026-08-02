@@ -49,7 +49,7 @@ jobs:
           python -m hideMyLute --version
           python -m pytest hideMyLute/tests/ -q -k "cli or roundtrip"
       - name: Build executable
-        run: pyinstaller --noconfirm hideMyLute.spec
+        run: python -m PyInstaller --noconfirm hideMyLute.spec
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

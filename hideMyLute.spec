@@ -1,6 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
-# Версионируемая спецификация сборки hideMyLute (SIG-11).
-# Сборка: pyinstaller hideMyLute.spec
+import sys
+
+# Каталог спецификации добавляется в sys.path: при запуске pyinstaller
+# из командной строки CWD не гарантированно присутствует в sys.path,
+# иначе импорт version_info завершается ModuleNotFoundError.
+sys.path.insert(0, SPECPATH)
+
 from PyInstaller.utils.hooks import collect_data_files
 
 from version_info import version_info  # noqa: E402
@@ -34,14 +39,14 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=False,                       # SIG-14: без UPX (AV-фолс-позитивы и демультиплексируемость)
+    upx=False,                       # без UPX (AV-фолс-позитивы и демультиплексируемость)
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
-    disable_windowed_traceback=True, # SIG-14: без traceback-диалогов в продакшене
+    disable_windowed_traceback=True, # без traceback-диалогов в продакшене
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version=version_info,            # SIG-15: версия/описание в свойствах файла
+    version=version_info,            # версия/описание в свойствах файла
 )

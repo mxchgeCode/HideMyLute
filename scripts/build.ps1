@@ -1,6 +1,6 @@
 # Сборка автономного исполняемого файла hideMyLute (PyInstaller).
 # Единственный поддерживаемый способ сборки — версионируемая спецификация
-# hideMyLute.spec (SIG-11, MIN-08).
+# hideMyLute.spec.
 #
 # Использование:
 #   powershell -ExecutionPolicy Bypass -File scripts\build.ps1
