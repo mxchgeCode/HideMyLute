@@ -104,7 +104,8 @@ class AppConfig:
     """Иммутабельная конфигурация приложения.
 
     Внедряется через конструкторы компонентов (Dependency Injection).
-    Все поля обязательны — конфигурация создаётся один раз при старте.
+    Все поля имеют разумные умолчания для production-запуска,
+    но могут быть переопределены при создании.
 
     Attributes:
         language: Код языка интерфейса ('ru' или 'en').
@@ -112,9 +113,9 @@ class AppConfig:
         log_file: Путь к файлу лога (если logging_enabled True).
     """
 
-    language: str
-    logging_enabled: bool
-    log_file: Path | None
+    language: str = "ru"
+    logging_enabled: bool = False
+    log_file: Path | None = None
 
     # Переводы на лету не меняются — это константы класса
     _TRANSLATIONS: ClassVar[dict[str, dict[str, str]]] = TRANSLATIONS
