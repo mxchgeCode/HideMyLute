@@ -45,6 +45,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+      - name: Set version from git tag
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            python scripts/set_version.py ${{ github.ref_name }}
+          } else {
+            Write-Host "Нет тега v* — используется версия из исходников"
+          }
       - name: Smoke test (версия и roundtrip)
         run: |
           python -m hideMyLute --version

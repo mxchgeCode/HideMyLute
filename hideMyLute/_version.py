@@ -26,7 +26,7 @@ __all__ = [
 VERSION_MAJOR: int = 3
 """Основная версия — несовместимые изменения формата/API."""
 
-VERSION_MINOR: int = 0
+VERSION_MINOR: int = 1
 """Минорная версия — новые возможности с предыдущего релиза."""
 
 VERSION_PATCH: int = 0
