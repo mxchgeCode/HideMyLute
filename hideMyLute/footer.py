@@ -338,7 +338,12 @@ def sha256_file(filepath: Path) -> str:
     return sha256.hexdigest()
 
 
-def sha256_region(filepath: str | Path, start: int, length: int) -> str:
+def sha256_region(
+    filepath: str | Path,
+    start: int,
+    length: int,
+    cancel_event=None,
+) -> str:
     """Вычисляет SHA-256 фрагмента файла [start, start + length).
 
     Используется для проверки целостности региона контейнера при
@@ -349,15 +354,23 @@ def sha256_region(filepath: str | Path, start: int, length: int) -> str:
         filepath: Путь к файлу.
         start: Смещение начала фрагмента.
         length: Длина фрагмента.
+        cancel_event: Опциональное событие отмены (threading.Event).
 
     Returns:
         Хеш фрагмента в виде hex-строки (64 символа).
+
+    Raises:
+        OperationCancelled: Если событие отмены установлено.
     """
+    from .exceptions import OperationCancelled
+
     sha256 = hashlib.sha256()
     with open(filepath, "rb") as fh:
         fh.seek(start)
         remaining = length
         while remaining > 0:
+            if cancel_event is not None and cancel_event.is_set():
+                raise OperationCancelled()
             chunk_size = min(CHUNK_SIZE, remaining)
             chunk = fh.read(chunk_size)
             if not chunk:

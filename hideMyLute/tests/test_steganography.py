@@ -460,6 +460,84 @@ class TestJoinSplitEdgeCases:
                 except OSError:
                     pass
 
+    def test_join_cancellation_leaves_no_files(self) -> None:
+        """Отмена join не оставляет ни выходного, ни временного файла."""
+        from hideMyLute.exceptions import OperationCancelled
+
+        carrier_path, container_path, output_path = self._make_sources(
+            b"\x00" * 1024, b"\xff" * 2048
+        )
+        tmp_path = output_path + ".part"
+
+        class CountingCancel:
+            def is_set(self) -> bool:
+                return True  # отменено с самого начала
+
+        try:
+            with pytest.raises(OperationCancelled):
+                join_files(
+                    carrier_path,
+                    container_path,
+                    output_path,
+                    "password123456",
+                    cancel_event=CountingCancel(),
+                )
+            assert not Path(output_path).exists()
+            assert not Path(tmp_path).exists()
+        finally:
+            for p in (carrier_path, container_path, output_path, tmp_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+
+    def test_split_cancellation_cleans_up_partial_container(self) -> None:
+        """Отмена split удаляет частично записанный файл контейнера."""
+        from hideMyLute.exceptions import OperationCancelled
+
+        carrier_path, container_path, output_path = self._make_sources(
+            b"\x00" * 1024, b"\xff" * 2048
+        )
+        out_dir = tempfile.mkdtemp()
+
+        class CountingCancel:
+            """Срабатывает на третьем вызове is_set.
+
+            Вызовы: хеш носителя (1), хеш контейнера (2),
+            первый чанк извлечения (3) — отмена внутри записи.
+            """
+
+            def __init__(self, set_after: int = 3) -> None:
+                self._count = 0
+                self._set_after = set_after
+
+            def is_set(self) -> bool:
+                self._count += 1
+                return self._count >= self._set_after
+
+        try:
+            join_files(
+                carrier_path, container_path, output_path, "password123456"
+            )
+            with pytest.raises(OperationCancelled):
+                split_file(
+                    output_path,
+                    out_dir,
+                    "password123456",
+                    cancel_event=CountingCancel(),
+                )
+            # В каталоге не должно остаться файлов контейнера
+            assert list(Path(out_dir).iterdir()) == []
+        finally:
+            for p in (carrier_path, container_path, output_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+            for leftover in Path(out_dir).iterdir():
+                leftover.unlink()
+            os.rmdir(out_dir)
+
     def test_join_empty_carrier_and_container(self) -> None:
         """Пустые носитель и контейнер: join и split проходят."""
         carrier_path, container_path, output_path = self._make_sources(b"", b"")

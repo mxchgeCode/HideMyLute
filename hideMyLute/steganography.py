@@ -16,7 +16,12 @@ from enum import Enum, auto
 from pathlib import Path
 
 from .config import CHUNK_SIZE, MIN_PASSWORD_LENGTH
-from .exceptions import FileOperationError, FooterError, ValidationError
+from .exceptions import (
+    FileOperationError,
+    FooterError,
+    OperationCancelled,
+    ValidationError,
+)
 from .footer import pack_footer, read_footer_size, sha256_region, unpack_footer
 
 
@@ -109,16 +114,21 @@ def join_files(
     container_path: str | Path,
     output_path: str | Path,
     password: str,
+    cancel_event=None,
 ) -> Path:
     """Соединяет носитель и контейнер в один файл с зашифрованным футером.
 
     Процесс:
-    1. Копирует носитель в output_path.
-    2. Дописывает контейнер в конец output_path.
-    3. Формирует и дописывает зашифрованный футер с метаданными.
+    1. Копирует носитель во временный файл ``<output>.part``.
+    2. Дописывает контейнер и футер во временный файл.
+    3. Атомарно переименовывает временный файл в целевой (replace).
+
+    Атомарность гарантирует, что при любой ошибке или отмене операции
+    на диске не остаётся частичного файла (важно для правдоподобного
+    отрицания): временный файл удаляется в ``except``.
 
     Хеши носителя и контейнера вычисляются по фактически записанным
-    регионам выходного файла, а не по исходным файлам (устраняет
+    регионам временного файла, а не по исходным файлам (устраняет
     TOCTOU между копированием и хешированием).
 
     Args:
@@ -126,6 +136,7 @@ def join_files(
         container_path: Путь к файлу-контейнеру.
         output_path: Путь для сохранения собранного файла.
         password: Парольная фраза для шифрования футера.
+        cancel_event: Опциональное событие отмены (threading.Event).
 
     Returns:
         Path к созданному файлу.
@@ -134,6 +145,7 @@ def join_files(
         ValidationError: При некорректных путях.
         FileOperationError: При ошибке записи.
         FooterError: При ошибке формирования футера.
+        OperationCancelled: При отмене операции.
     """
     carrier = Path(carrier_path)
     container = Path(container_path)
@@ -151,16 +163,19 @@ def join_files(
             msg_key="error_password_short",
         )
 
+    tmp = output.with_name(output.name + ".part")
     try:
         # 1. Копируем носитель
-        _copy_file(carrier, output)
-        carrier_size = output.stat().st_size
-        carrier_hash = sha256_region(output, 0, carrier_size)
+        _copy_file(carrier, tmp, cancel_event)
+        carrier_size = tmp.stat().st_size
+        carrier_hash = sha256_region(tmp, 0, carrier_size, cancel_event)
 
         # 2. Дописываем контейнер
-        _append_file(container, output)
-        container_size = output.stat().st_size - carrier_size
-        container_hash = sha256_region(output, carrier_size, container_size)
+        _append_file(container, tmp, cancel_event)
+        container_size = tmp.stat().st_size - carrier_size
+        container_hash = sha256_region(
+            tmp, carrier_size, container_size, cancel_event
+        )
 
         # 3. Формируем и дописываем футер
         footer = pack_footer(
@@ -173,25 +188,32 @@ def join_files(
             container_hash=container_hash,
             container_name=container.name,
         )
-        with open(output, "ab") as fh:
+        with open(tmp, "ab") as fh:
             fh.write(footer)
 
+        # 4. Атомарная публикация результата
+        tmp.replace(output)
         return output
 
-    except (FooterError, FileOperationError):
-        raise
     except OSError as exc:
+        # Никаких улик при сбое: удаляем временный файл
+        tmp.unlink(missing_ok=True)
         raise FileOperationError(
             f"Ошибка при соединении файлов: {exc}",
             msg_key="error_join_failed",
             error=str(exc),
         ) from exc
+    except BaseException:
+        # Никаких улик при сбое или отмене: удаляем временный файл
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def split_file(
     combined_path: str | Path,
     output_dir: str | Path,
     password: str,
+    cancel_event=None,
 ) -> tuple[Path, dict]:
     """Разделяет собранный файл на носитель и контейнер.
 
@@ -201,10 +223,13 @@ def split_file(
        контейнера.
     3. Отрезает контейнер, сохраняет в output_dir с исходным именем.
 
+    При ошибке или отмене частично записанный файл контейнера удаляется.
+
     Args:
         combined_path: Путь к собранному файлу.
         output_dir: Директория для сохранения контейнера.
         password: Парольная фраза для расшифровки футера.
+        cancel_event: Опциональное событие отмены (threading.Event).
 
     Returns:
         Кортеж (путь_к_контейнеру, словарь_метаданных).
@@ -214,6 +239,7 @@ def split_file(
         FooterError: При отсутствии или повреждении футера.
         CryptoError: При неверном пароле.
         FileOperationError: При ошибке записи.
+        OperationCancelled: При отмене операции.
     """
     combined = Path(combined_path)
     out_dir = Path(output_dir)
@@ -247,7 +273,9 @@ def split_file(
         )
 
     # 2. Проверяем SHA-256 региона носителя (первые carrier_size байт)
-    actual_hash = sha256_region(str(combined), 0, carrier_size)
+    actual_hash = sha256_region(
+        str(combined), 0, carrier_size, cancel_event
+    )
     if actual_hash != expected_hash:
         raise FooterError(
             "Хеш носителя не совпадает. Файл-носитель был изменён "
@@ -258,7 +286,7 @@ def split_file(
     # 2b. Проверяем SHA-256 региона контейнера (формат v2)
     if expected_container_hash is not None:
         actual_container_hash = sha256_region(
-            str(combined), carrier_size, container_size
+            str(combined), carrier_size, container_size, cancel_event
         )
         if actual_container_hash != expected_container_hash:
             raise FooterError(
@@ -279,6 +307,8 @@ def split_file(
             with open(container_path, "wb") as dst_fh:
                 remaining = container_size
                 while remaining > 0:
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise OperationCancelled()
                     chunk_size = min(CHUNK_SIZE, remaining)
                     chunk = src_fh.read(chunk_size)
                     if not chunk:
@@ -286,11 +316,17 @@ def split_file(
                     dst_fh.write(chunk)
                     remaining -= len(chunk)
     except OSError as exc:
+        # Удаляем частичный файл контейнера при ошибке записи
+        container_path.unlink(missing_ok=True)
         raise FileOperationError(
             f"Ошибка при извлечении контейнера: {exc}",
             msg_key="error_extract_failed",
             error=str(exc),
         ) from exc
+    except BaseException:
+        # Удаляем частичный файл контейнера при отмене
+        container_path.unlink(missing_ok=True)
+        raise
 
     return container_path, metadata
 
@@ -357,11 +393,23 @@ def _validate_paths(
         )
 
 
-def _copy_file(src: Path, dst: Path) -> None:
-    """Потоково копирует файл (не загружая в память)."""
+def _copy_file(src: Path, dst: Path, cancel_event=None) -> None:
+    """Потоково копирует файл (не загружая в память).
+
+    Args:
+        src: Исходный файл.
+        dst: Файл назначения.
+        cancel_event: Опциональное событие отмены (threading.Event).
+
+    Raises:
+        FileOperationError: При ошибке ввода-вывода.
+        OperationCancelled: При отмене операции.
+    """
     try:
         with open(src, "rb") as fh_src, open(dst, "wb") as fh_dst:
             while True:
+                if cancel_event is not None and cancel_event.is_set():
+                    raise OperationCancelled()
                 chunk = fh_src.read(CHUNK_SIZE)
                 if not chunk:
                     break
@@ -376,11 +424,23 @@ def _copy_file(src: Path, dst: Path) -> None:
         ) from exc
 
 
-def _append_file(src: Path, dst: Path) -> None:
-    """Дописывает src в конец dst потоково."""
+def _append_file(src: Path, dst: Path, cancel_event=None) -> None:
+    """Дописывает src в конец dst потоково.
+
+    Args:
+        src: Исходный файл.
+        dst: Файл назначения (дописывается в конец).
+        cancel_event: Опциональное событие отмены (threading.Event).
+
+    Raises:
+        FileOperationError: При ошибке ввода-вывода.
+        OperationCancelled: При отмене операции.
+    """
     try:
         with open(src, "rb") as fh_src, open(dst, "ab") as fh_dst:
             while True:
+                if cancel_event is not None and cancel_event.is_set():
+                    raise OperationCancelled()
                 chunk = fh_src.read(CHUNK_SIZE)
                 if not chunk:
                     break
