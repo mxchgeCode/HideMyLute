@@ -2,39 +2,35 @@
 
 ![](resources/666.jpg)
 
-Утилита для объединения и разделения файлов.
+Инструмент стеганографии. Соединяет файл-носитель и зашифрованный контейнер
+в один файл. Разделение возможно только при знании пароля.
 
-## Установка
+## Возможности
 
-Требуется Python >= 3.9.
+- **Соединение (join)**: носитель + контейнер → один файл 
+- **Разделение (split)**: извлечение контейнера при правильном пароле
+- **Правдоподобное отрицание**: выходной файл сохраняет расширение
+  носителя и визуально/структурно идентичен ему
+- **AES-256-GCM**: аутентифицированное шифрование метаданных
+- **PBKDF2-HMAC-SHA256**: 600 000 итераций для стойкости к перебору
+- **SHA-256**: проверка целостности носителя при разделении
+- **Потоковое копирование**: буфер, файлы любого размера
+- **GUI**: CustomTkinter
+- **Три стратегии именования**: WINDOWS_STYLE, UUID, SAME_AS_CARRIER
+
+### Командная строка
+
+Помимо GUI доступны CLI-подкоманды (пароль запрашивается интерактивно
+через getpass, если не передан флаг `--password`):
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate  # Windows
-source .venv/bin/activate  # Linux/macOS
-pip install -r requirements.txt
+python -m hideMyLute join carrier.jpg container.bin out.jpg --password "secret"
+python -m hideMyLute split out.jpg --output-dir extracted
+python -m hideMyLute info out.jpg
 ```
+## Безопасность
 
-## Запуск
-
-```bash
-python -m hideMyLute
-```
-
-## Тесты
-
-```bash
-pytest hideMyLute/tests/ -v
-```
-
-## Сборка
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\build.ps1
-```
-
-Результат: `dist\hideMyLute.exe`.
-
-## Лицензия
-
-MIT
+- Пароль не хранится — только производный ключ в оперативной памяти
+- AES-256-GCM обеспечивает конфиденциальность и целостность
+- PBKDF2 с 600 000 итераций (OWASP 2023) усложняет перебор
+- Проверка SHA-256 хеша носителя предотвращает подмену
