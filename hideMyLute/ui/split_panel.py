@@ -156,6 +156,8 @@ class SplitPanel(OperationPanel):
             f"{t('status_completed_split')} \u2014 {container_path}",
             click_path=container_path,
         )
+        # Секрет не должен оставаться в памяти UI после завершения
+        self._clear_password_fields()
 
     def _on_split_error(self, error: str | HideMyLuteError) -> None:
         """Callback при ошибке разделения."""

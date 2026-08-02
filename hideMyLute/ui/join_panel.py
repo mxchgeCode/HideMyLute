@@ -171,6 +171,8 @@ class JoinPanel(OperationPanel):
 
     def _on_password_changed(self, *args: Any) -> None:
         """Обновляет индикатор силы пароля и проверяет совпадение."""
+        if getattr(self, "_clearing_passwords", False):
+            return
         self._completed_path = None
         self._error = None
         self._update_strength_label()
@@ -184,6 +186,8 @@ class JoinPanel(OperationPanel):
 
     def _on_confirm_changed(self, *args: Any) -> None:
         """Проверяет совпадение паролей в реальном времени."""
+        if getattr(self, "_clearing_passwords", False):
+            return
         self._completed_path = None
         self._error = None
         pwd = self._password.password_var.get()
@@ -265,6 +269,8 @@ class JoinPanel(OperationPanel):
             f"{t('status_completed_join')} \u2014 {result}",
             click_path=result,
         )
+        # Секрет не должен оставаться в памяти UI после завершения
+        self._clear_password_fields()
 
     def _on_join_error(self, error: str | HideMyLuteError) -> None:
         """Callback при ошибке соединения."""

@@ -78,9 +78,32 @@ class OperationPanel(ctk.CTkFrame):
 
     def _on_password_changed(self, *args: Any) -> None:
         """Сбрасывает состояние завершённой операции при смене пароля."""
+        if getattr(self, "_clearing_passwords", False):
+            return
         self._completed_path = None
         self._error = None
         self.refresh_status()
+
+    def _clear_password_fields(self) -> None:
+        """Очищает поля пароля после успешной операции.
+
+        Сокращает время жизни секрета в памяти UI (SIG-05). Очистка
+        выполняется с подавлением trace-callbacks, чтобы не перезаписать
+        статус успешного завершения.
+        """
+        if getattr(self, "_clearing_passwords", False):
+            return
+        self._clearing_passwords = True
+        try:
+            if hasattr(self, "_password"):
+                self._password.password_var.set("")
+            if hasattr(self, "_confirm_var"):
+                self._confirm_var.set("")
+            updater = getattr(self, "_update_strength_label", None)
+            if updater is not None:
+                updater()
+        finally:
+            self._clearing_passwords = False
 
     # --- Жизненный цикл фоновой операции ---
 
