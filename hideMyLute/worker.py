@@ -40,8 +40,8 @@ class BackgroundWorker:
         on_error: Callable[[str], None],
         on_finish: Callable[[], None] | None = None,
         root=None,
-        *args: Any,
-        **kwargs: Any,
+        args: tuple[Any, ...] | None = None,
+        kwargs: dict[str, Any] | None = None,
     ) -> None:
         """Запускает операцию в фоновом потоке.
 
@@ -54,18 +54,20 @@ class BackgroundWorker:
             on_finish: Вызывается в основном потоке в любом случае
                        после on_success/on_error.
             root: Корневой виджет tkinter для root.after().
-            *args: Позиционные аргументы для target.
-            **kwargs: Именованные аргументы для target.
+            args: Кортеж позиционных аргументов для target.
+            kwargs: Словарь именованных аргументов для target.
         """
         if self.is_running:
             on_error("Операция уже выполняется")
             return
 
         self._cancelled = False
+        _args = args or ()
+        _kwargs = kwargs or {}
 
         def _wrapper() -> None:
             try:
-                result = target(*args, **kwargs)
+                result = target(*_args, **_kwargs)
                 if not self._cancelled and root:
                     root.after(0, on_success, result)
                 elif not self._cancelled:

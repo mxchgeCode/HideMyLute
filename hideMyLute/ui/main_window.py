@@ -21,9 +21,9 @@ class MainWindow(ctk.CTk):
     и прогресс-оверлеем.
     """
 
-    APP_TITLE = "hideMyLute v2.0 — Правдоподобное отрицание"
+    APP_TITLE = "hideMyLute"
     WINDOW_WIDTH = 520
-    WINDOW_HEIGHT = 620
+    WINDOW_HEIGHT = 580
 
     def __init__(
         self,
@@ -57,7 +57,7 @@ class MainWindow(ctk.CTk):
         """Настраивает параметры окна."""
         self.title(self.APP_TITLE)
         self.geometry(f"{self.WINDOW_WIDTH}x{self.WINDOW_HEIGHT}")
-        self.minsize(480, 560)
+        self.minsize(480, 500)
 
         # Центрирование на экране
         self.update_idletasks()
@@ -116,11 +116,54 @@ class MainWindow(ctk.CTk):
         self._status_bar.grid(
             row=1, column=0, sticky="ew", padx=5, pady=5
         )
-        self._set_status(t("status_ready"))
+        self._set_status(t("status_not_ready"))
 
         # Прогресс-оверлей (скрыт по умолчанию)
         self._overlay = ProgressOverlay(self)
         self._overlay.hide()
+
+        # Выбор языка (правый верхний угол)
+        self._build_language_selector()
+
+    def _build_language_selector(self) -> None:
+        """Создаёт переключатель языка."""
+        t = self._config.t
+
+        self._lang_frame = ctk.CTkFrame(
+            self, fg_color="transparent"
+        )
+        self._lang_frame.place(relx=1.0, rely=0.0, x=-10, y=5, anchor="ne")
+
+        ctk.CTkLabel(
+            self._lang_frame,
+            text=t("language_label"),
+            font=ctk.CTkFont(size=11),
+        ).pack(side="left", padx=(0, 5))
+
+        self._lang_switch = ctk.CTkSegmentedButton(
+            self._lang_frame,
+            values=["RU", "EN"],
+            command=self._on_language_changed,
+            width=80,
+        )
+        self._lang_switch.pack(side="left")
+        self._lang_switch.set("RU" if self._config.language == "ru" else "EN")
+
+    def _on_language_changed(self, value: str) -> None:
+        """Обработчик смены языка."""
+        new_lang = "ru" if value == "RU" else "en"
+        if new_lang == self._config.language:
+            return
+
+        # AppConfig frozen — создаём новый
+        new_config = AppConfig(language=new_lang)
+        self._config = new_config
+
+        # Разбираем и перестраиваем UI
+        self._lang_frame.destroy()
+        self._tabview.destroy()
+        self._status_bar.destroy()
+        self._build_ui()
 
     def _set_status(self, text: str) -> None:
         """Устанавливает текст статус-бара."""

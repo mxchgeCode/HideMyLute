@@ -83,7 +83,7 @@ class FileSelector(ctk.CTkFrame):
 
 
 class PasswordField(ctk.CTkFrame):
-    """Поле ввода пароля с меткой и индикатором силы.
+    """Поле ввода пароля с меткой.
 
     Attributes:
         password_var: StringVar, связанный с полем пароля.
@@ -93,7 +93,7 @@ class PasswordField(ctk.CTkFrame):
         self,
         parent: ctk.CTkFrame,
         label: str = "Пароль:",
-        show_strength: bool = True,
+        trace_callback: Any = None,
         **kwargs: Any,
     ) -> None:
         """Инициализирует PasswordField.
@@ -101,7 +101,8 @@ class PasswordField(ctk.CTkFrame):
         Args:
             parent: Родительский виджет.
             label: Текст метки.
-            show_strength: Показывать индикатор силы пароля.
+            trace_callback: Callback при изменении пароля
+                            (вызывается с *args от StringVar.trace).
         """
         super().__init__(parent, **kwargs)
 
@@ -115,7 +116,10 @@ class PasswordField(ctk.CTkFrame):
             self,
             textvariable=self.password_var,
             show="•",
-        ).pack(fill="x", padx=5, pady=(0, 5))
+        ).pack(fill="x", padx=5, pady=(0, 2))
+
+        if trace_callback:
+            self.password_var.trace_add("write", trace_callback)
 
 
 class StatusBar(ctk.CTkFrame):

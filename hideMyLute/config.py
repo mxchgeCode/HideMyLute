@@ -18,7 +18,8 @@ FOOTER_VERSION: int = 1
 """Версия формата футера (для будущей обратной совместимости)."""
 
 FOOTER_HEADER_SIZE: int = 12
-"""Размер заголовка футера в байтах: 4 (magic) + 2 (version) + 2 (flags) + 4 (footer_len)."""
+"""Размер заголовка футера в байтах:
+4 (magic) + 2 (version) + 2 (flags) + 4 (footer_len)."""
 
 PBKDF2_ITERATIONS: int = 600_000
 """Количество итераций PBKDF2-HMAC-SHA256 согласно OWASP 2023."""
@@ -35,6 +36,9 @@ AES_NONCE_SIZE: int = 12
 CHUNK_SIZE: int = 1024 * 1024
 """Размер буфера для потокового копирования файлов (1 МБ)."""
 
+# Минимальная и рекомендуемая длина пароля
+MIN_PASSWORD_LENGTH: int = 4
+RECOMMENDED_PASSWORD_LENGTH: int = 8
 
 # Словари переводов UI
 TRANSLATIONS: dict[str, dict[str, str]] = {
@@ -45,7 +49,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "carrier_file": "Файл-носитель:",
         "container_file": "Файл-контейнер:",
         "combined_file": "Собранный файл:",
-        "output_file": "Выходной файл:",
         "password": "Пароль:",
         "password_confirm": "Подтверждение:",
         "browse": "Обзор...",
@@ -53,18 +56,26 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "split_btn": "Разделить",
         "progress_join": "Соединение...",
         "progress_split": "Разделение...",
-        "success_join": "Файлы успешно соединены.",
-        "success_split": "Контейнер успешно извлечён.",
         "error_title": "Ошибка",
         "error_wrong_password": "Неверный пароль или файл повреждён.",
         "error_no_footer": "В файле не найден футер hideMyLute.",
         "error_passwords_mismatch": "Пароли не совпадают.",
         "error_file_not_found": "Файл не найден: {path}",
         "error_empty_path": "Путь к файлу не может быть пустым.",
-        "carrier_original_size": "Исходный размер носителя:",
-        "container_size": "Размер контейнера:",
-        "status_ready": "Готов",
+        "error_password_empty": "Пароль не может быть пустым.",
+        "error_password_short": (
+            "Пароль должен быть не менее 4 символов."
+        ),
+        "password_strength_weak": "Слишком короткий (мин. 4 симв.)",
+        "password_strength_ok": "Приемлемый",
+        "password_strength_strong": "Надёжный",
+        "status_ready_join": "Готов к соединению",
+        "status_ready_split": "Готов к разделению",
+        "status_not_ready": "Заполните все поля",
         "status_processing": "Обработка...",
+        "status_completed_join": "Готово: файл сохранён",
+        "status_completed_split": "Готово: контейнер извлечён",
+        "language_label": "Язык:",
     },
     "en": {
         "app_title": "hideMyLute",
@@ -73,7 +84,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "carrier_file": "Carrier file:",
         "container_file": "Container file:",
         "combined_file": "Combined file:",
-        "output_file": "Output file:",
         "password": "Password:",
         "password_confirm": "Confirmation:",
         "browse": "Browse...",
@@ -81,8 +91,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "split_btn": "Split",
         "progress_join": "Joining...",
         "progress_split": "Splitting...",
-        "success_join": "Files joined successfully.",
-        "success_split": "Container extracted successfully.",
         "error_title": "Error",
         "error_wrong_password": (
             "Wrong password or file is corrupted."
@@ -91,10 +99,20 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_passwords_mismatch": "Passwords do not match.",
         "error_file_not_found": "File not found: {path}",
         "error_empty_path": "File path cannot be empty.",
-        "carrier_original_size": "Original carrier size:",
-        "container_size": "Container size:",
-        "status_ready": "Ready",
+        "error_password_empty": "Password cannot be empty.",
+        "error_password_short": (
+            "Password must be at least 4 characters."
+        ),
+        "password_strength_weak": "Too short (min 4 chars)",
+        "password_strength_ok": "Acceptable",
+        "password_strength_strong": "Strong",
+        "status_ready_join": "Ready to join",
+        "status_ready_split": "Ready to split",
+        "status_not_ready": "Fill all fields",
         "status_processing": "Processing...",
+        "status_completed_join": "Done: file saved",
+        "status_completed_split": "Done: container extracted",
+        "language_label": "Language:",
     },
 }
 
