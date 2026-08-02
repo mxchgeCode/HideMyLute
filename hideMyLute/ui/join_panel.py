@@ -12,10 +12,11 @@ from ..exceptions import HideMyLuteError
 from ..password_strength import Strength, assess_password_strength
 from ..steganography import generate_output_path, join_files
 from ..worker import BackgroundWorker
+from .operation_panel import OperationPanel
 from .widgets import FileSelector, PasswordField
 
 
-class JoinPanel(ctk.CTkFrame):
+class JoinPanel(OperationPanel):
     """Панель для соединения файла-носителя и контейнера."""
 
     def __init__(
@@ -34,15 +35,8 @@ class JoinPanel(ctk.CTkFrame):
             worker: Фоновый воркер (DI).
             on_status: Callback для строки статуса.
         """
-        super().__init__(parent, **kwargs)
-        self._config = config
-        self._worker = worker
-        self._on_status = on_status
-
-        self._completed_path: Path | None = None
-        self._error: str | HideMyLuteError | None = None
-        self._processing: bool = False
-
+        super().__init__(parent, config=config, worker=worker,
+                         on_status=on_status, **kwargs)
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -103,14 +97,14 @@ class JoinPanel(ctk.CTkFrame):
         self._confirm_entry.pack(fill="x", padx=10, pady=(0, 5))
 
         # Кнопка «Соединить»
-        self._join_btn = ctk.CTkButton(
+        self._action_btn = ctk.CTkButton(
             self,
             text=t("join_btn"),
             height=60,
             font=ctk.CTkFont(size=28, weight="bold"),
             command=self._on_join,
         )
-        self._join_btn.pack(pady=15)
+        self._action_btn.pack(pady=15)
 
         # Прогресс-бар (индикатор неопределённого прогресса, скрыт по умолчанию)
         self._progress_bar = ctk.CTkProgressBar(
@@ -129,7 +123,7 @@ class JoinPanel(ctk.CTkFrame):
         self._container.update_labels(t("container_file"), t("browse"))
         self._password.update_label(t("password"))
         self._confirm_label.configure(text=t("password_confirm"))
-        self._join_btn.configure(text=t("join_btn"))
+        self._action_btn.configure(text=t("join_btn"))
         self._update_strength_label()
 
     def refresh_status(self) -> None:
@@ -157,12 +151,6 @@ class JoinPanel(ctk.CTkFrame):
             self._on_status(t("status_not_ready"))
             return
         self._check_password_match(pwd, confirm)
-
-    def _on_file_changed(self, *args: Any) -> None:
-        """Сбрасывает состояние завершённой операции при смене файла."""
-        self._completed_path = None
-        self._error = None
-        self.refresh_status()
 
     def _update_strength_label(self) -> None:
         """Обновляет индикатор силы пароля."""
@@ -255,16 +243,9 @@ class JoinPanel(ctk.CTkFrame):
             return
 
         output_path = generate_output_path(str(carrier))
+        self._begin_processing()
 
-        self._join_btn.configure(state="disabled")
-        self._processing = True
-        self._completed_path = None
-        self._error = None
-        self._progress_bar.pack(fill="x", padx=10, pady=(0, 5))
-        self._progress_bar.start()
-        self._on_status(t("status_processing"))
-
-        self._worker.run(
+        self._run_operation(
             target=join_files,
             args=(
                 str(carrier),
@@ -274,22 +255,7 @@ class JoinPanel(ctk.CTkFrame):
             ),
             on_success=self._on_join_success,
             on_error=self._on_join_error,
-            on_finish=self._on_join_finish,
-            root=self.winfo_toplevel(),
         )
-
-    def _format_error(self, error: str | HideMyLuteError) -> str:
-        """Возвращает переведённое сообщение об ошибке целиком."""
-        return (
-            f"{self._config.t('error_title')}: "
-            f"{self._translate_error(error)}"
-        )
-
-    def _translate_error(self, error: str | HideMyLuteError) -> str:
-        """Возвращает переведённое сообщение об ошибке."""
-        if isinstance(error, HideMyLuteError) and error.msg_key:
-            return self._config.t(error.msg_key, **error.msg_kwargs)
-        return str(error)
 
     def _on_join_success(self, result: Path) -> None:
         """Callback при успешном соединении."""
@@ -304,10 +270,3 @@ class JoinPanel(ctk.CTkFrame):
         """Callback при ошибке соединения."""
         self._error = error
         self._on_status(self._format_error(error))
-
-    def _on_join_finish(self) -> None:
-        """Callback по завершении (всегда)."""
-        self._processing = False
-        self._progress_bar.stop()
-        self._progress_bar.pack_forget()
-        self._join_btn.configure(state="normal")
