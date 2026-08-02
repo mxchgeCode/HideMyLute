@@ -95,4 +95,3 @@ jobs:
         with:
           files: dist/hideMyLute.exe
           body_path: release_notes.md
-          update_release: true
