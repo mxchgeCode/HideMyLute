@@ -55,7 +55,9 @@ def derive_key(password: str, salt: bytes | None = None) -> tuple[bytes, bytes]:
         salt = os.urandom(PBKDF2_SALT_SIZE)
     elif len(salt) != PBKDF2_SALT_SIZE:
         raise CryptoError(
-            f"Соль должна быть длиной {PBKDF2_SALT_SIZE} байт"
+            f"Соль должна быть длиной {PBKDF2_SALT_SIZE} байт",
+            msg_key="error_salt_size",
+            size=str(PBKDF2_SALT_SIZE),
         )
 
     try:
@@ -69,7 +71,9 @@ def derive_key(password: str, salt: bytes | None = None) -> tuple[bytes, bytes]:
         return key, salt
     except Exception as exc:
         raise CryptoError(
-            f"Ошибка деривации ключа: {exc}"
+            f"Ошибка деривации ключа: {exc}",
+            msg_key="error_derive_failed",
+            error=str(exc),
         ) from exc
 
 
@@ -98,7 +102,9 @@ def encrypt_aes_gcm(
     """
     if len(key) != AES_KEY_SIZE:
         raise CryptoError(
-            f"Ключ должен быть длиной {AES_KEY_SIZE} байт"
+            f"Ключ должен быть длиной {AES_KEY_SIZE} байт",
+            msg_key="error_key_size",
+            size=str(AES_KEY_SIZE),
         )
 
     nonce = os.urandom(AES_NONCE_SIZE)
@@ -107,7 +113,11 @@ def encrypt_aes_gcm(
         ciphertext = aesgcm.encrypt(nonce, plaintext, associated_data)
         return nonce + ciphertext
     except Exception as exc:
-        raise CryptoError(f"Ошибка шифрования AES-GCM: {exc}") from exc
+        raise CryptoError(
+            f"Ошибка шифрования AES-GCM: {exc}",
+            msg_key="error_encrypt_failed",
+            error=str(exc),
+        ) from exc
 
 
 def decrypt_aes_gcm(
@@ -134,11 +144,16 @@ def decrypt_aes_gcm(
     """
     if len(key) != AES_KEY_SIZE:
         raise CryptoError(
-            f"Ключ должен быть длиной {AES_KEY_SIZE} байт"
+            f"Ключ должен быть длиной {AES_KEY_SIZE} байт",
+            msg_key="error_key_size",
+            size=str(AES_KEY_SIZE),
         )
 
     if len(encrypted_data) < AES_NONCE_SIZE + 16:
-        raise CryptoError("Зашифрованные данные слишком короткие")
+        raise CryptoError(
+            "Зашифрованные данные слишком короткие",
+            msg_key="error_data_too_short",
+        )
 
     nonce = encrypted_data[:AES_NONCE_SIZE]
     ciphertext = encrypted_data[AES_NONCE_SIZE:]

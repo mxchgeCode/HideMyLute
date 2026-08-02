@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar
 
 # Константы, не подлежащие изменению в рантайме
 MAGIC_BYTES: bytes = b'HMLF'
@@ -117,6 +116,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Пароль слишком длинный (максимум {max_len} символов)."
         ),
         "error_operation_cancelled": "Операция отменена.",
+        "error_salt_size": "Соль должна быть длиной {size} байт.",
+        "error_key_size": "Ключ должен быть длиной {size} байт.",
+        "error_data_too_short": "Зашифрованные данные слишком короткие.",
+        "error_derive_failed": "Ошибка деривации ключа: {error}",
+        "error_encrypt_failed": "Ошибка шифрования AES-GCM: {error}",
         "error_footer_too_small": "Файл слишком мал для содержания футера.",
         "error_footer_version": (
             "Несовместимая версия футера: {version} (ожидается {expected})."
@@ -188,6 +192,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Password is too long (maximum {max_len} characters)."
         ),
         "error_operation_cancelled": "Operation cancelled.",
+        "error_salt_size": "Salt must be {size} bytes long.",
+        "error_key_size": "Key must be {size} bytes long.",
+        "error_data_too_short": "Encrypted data is too short.",
+        "error_derive_failed": "Key derivation failed: {error}",
+        "error_encrypt_failed": "AES-GCM encryption failed: {error}",
         "error_footer_too_small": "File is too small to contain a footer.",
         "error_footer_version": (
             "Incompatible footer version: {version} (expected {expected})."
@@ -215,7 +224,39 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 }
 
 
-@dataclass
+@dataclass(frozen=True)
+class Translations:
+    """Локализация интерфейса (выделена из AppConfig).
+
+    Содержит логику выбора словаря и форматирования строк. Экземпляры
+    неизменяемы; смена языка создаёт новый объект или обновляется через
+    set_language (frozen → object.__setattr__).
+    """
+
+    language: str = "ru"
+
+    def t(self, key: str, **kwargs: str) -> str:
+        """Возвращает переведённую строку по ключу.
+
+        Args:
+            key: Ключ строки в словаре переводов.
+            **kwargs: Параметры для форматирования строки.
+
+        Returns:
+            Переведённая строка с подставленными параметрами.
+        """
+        lang_dict = TRANSLATIONS.get(self.language, TRANSLATIONS["en"])
+        template = lang_dict.get(key, key)
+        if kwargs:
+            return template.format(**kwargs)
+        return template
+
+    def set_language(self, language: str) -> None:
+        """Устанавливает язык (frozen-объект → через object.__setattr__)."""
+        object.__setattr__(self, "language", language)
+
+
+@dataclass(frozen=True)
 class AppConfig:
     """Конфигурация приложения.
 
@@ -234,8 +275,10 @@ class AppConfig:
     logging_enabled: bool = False
     log_file: Path | None = None
 
-    # Переводы на лету не меняются — это константы класса
-    _TRANSLATIONS: ClassVar[dict[str, dict[str, str]]] = TRANSLATIONS
+    @property
+    def translations(self) -> Translations:
+        """Возвращает объект локализации для текущего языка."""
+        return Translations(self.language)
 
     def set_language(self, language: str) -> None:
         """Устанавливает язык интерфейса.
@@ -255,11 +298,4 @@ class AppConfig:
         Returns:
             Переведённая строка с подставленными параметрами.
         """
-        lang_dict = self._TRANSLATIONS.get(
-            self.language,
-            self._TRANSLATIONS["en"],
-        )
-        template = lang_dict.get(key, key)
-        if kwargs:
-            return template.format(**kwargs)
-        return template
+        return self.translations.t(key, **kwargs)
