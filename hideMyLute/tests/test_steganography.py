@@ -11,6 +11,7 @@ import pytest
 from hideMyLute.exceptions import (
     CryptoError,
     FileOperationError,
+    FooterError,
     ValidationError,
 )
 from hideMyLute.steganography import (
@@ -248,3 +249,247 @@ class TestJoinAndSplit:
         """Разделение несуществующего файла: ValidationError."""
         with pytest.raises(ValidationError, match="не найден"):
             split_file("/nonexistent/file.bin", "/tmp", "pwd")
+
+
+class TestJoinSplitEdgeCases:
+    """Граничные случаи join/split (блокирующие и критичные замечания)."""
+
+    def _make_sources(
+        self, carrier_data: bytes, container_data: bytes
+    ) -> tuple[str, str, str]:
+        """Создаёт carrier/container и возвращает (carrier, container, output)."""
+        c = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        v = tempfile.NamedTemporaryFile(delete=False, suffix=".bin")
+        c.write(carrier_data)
+        c.flush()
+        v.write(container_data)
+        v.flush()
+        c.close()
+        v.close()
+        return c.name, v.name, c.name + ".joined"
+
+    def test_split_tiny_file_raises_footer_error_not_oserror(self) -> None:
+        """Файл короче 12 байт: FooterError, а не сырой OSError."""
+        tiny = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        tiny.write(b"12345")
+        tiny.flush()
+        tiny.close()
+        out_dir = tempfile.mkdtemp()
+        try:
+            with pytest.raises(FooterError, match="слишком мал"):
+                split_file(tiny.name, out_dir, "pwd")
+        finally:
+            os.unlink(tiny.name)
+            os.rmdir(out_dir)
+
+    def test_split_tampered_container_rejected(self) -> None:
+        """Подмена региона контейнера обнаруживается при разделении."""
+        carrier_path, container_path, output_path = self._make_sources(
+            b"\x00" * 300, b"\xFF" * 200
+        )
+        out_dir = tempfile.mkdtemp()
+        try:
+            join_files(carrier_path, container_path, output_path, "pwd")
+
+            # Повреждаем байт в регионе контейнера
+            data = bytearray(Path(output_path).read_bytes())
+            data[300] ^= 0xFF
+            Path(output_path).write_bytes(bytes(data))
+
+            with pytest.raises(FooterError, match="контейнера"):
+                split_file(output_path, out_dir, "pwd")
+        finally:
+            for p in (carrier_path, container_path, output_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+            try:
+                os.rmdir(out_dir)
+            except OSError:
+                pass
+
+    def test_split_truncated_file_rejected(self) -> None:
+        """Усечённый файл: разделение не выполняется."""
+        carrier_path, container_path, output_path = self._make_sources(
+            b"\x00" * 200, b"\xFF" * 100
+        )
+        out_dir = tempfile.mkdtemp()
+        try:
+            join_files(carrier_path, container_path, output_path, "pwd")
+            data = Path(output_path).read_bytes()
+            Path(output_path).write_bytes(data[:-1])
+            with pytest.raises(FooterError):
+                split_file(output_path, out_dir, "pwd")
+        finally:
+            for p in (carrier_path, container_path, output_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+            try:
+                os.rmdir(out_dir)
+            except OSError:
+                pass
+
+    def test_split_preserves_container_name(self) -> None:
+        """Извлечённый контейнер сохраняет исходное имя и расширение."""
+        carrier_path, container_path, output_path = self._make_sources(
+            b"\x00" * 200, b"\xFF" * 100
+        )
+        out_dir = tempfile.mkdtemp()
+        try:
+            join_files(carrier_path, container_path, output_path, "pwd")
+            container_out, _ = split_file(output_path, out_dir, "pwd")
+            # Имя контейнера = имя исходного файла контейнера
+            assert Path(container_out).name == Path(container_path).name
+            assert Path(container_out).suffix == Path(container_path).suffix
+            assert Path(container_out).read_bytes() == b"\xFF" * 100
+        finally:
+            for p in (carrier_path, container_path, output_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+            for leftover in Path(out_dir).iterdir():
+                leftover.unlink()
+            os.rmdir(out_dir)
+
+    def test_split_does_not_overwrite_existing_file(self) -> None:
+        """При занятом имени контейнера создаётся имя с суффиксом."""
+        carrier_path, container_path, output_path = self._make_sources(
+            b"\x00" * 200, b"\xFF" * 100
+        )
+        out_dir = tempfile.mkdtemp()
+        try:
+            join_files(carrier_path, container_path, output_path, "pwd")
+
+            # Занимаем имя, которое будет у извлечённого контейнера
+            container_name = Path(container_path).name
+            occupied = Path(out_dir) / container_name
+            occupied.write_bytes(b"original")
+
+            container_out, _ = split_file(output_path, out_dir, "pwd")
+            assert container_out != occupied
+            assert occupied.read_bytes() == b"original"
+            assert Path(container_out).read_bytes() == b"\xFF" * 100
+        finally:
+            for p in (carrier_path, container_path, output_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+            for leftover in Path(out_dir).iterdir():
+                leftover.unlink()
+            os.rmdir(out_dir)
+
+    def test_split_container_name_path_traversal_sanitized(self) -> None:
+        """Имя контейнера с путями не может выйти за пределы каталога."""
+        carrier_path, container_path, output_path = self._make_sources(
+            b"\x00" * 200, b"\xFF" * 100
+        )
+        out_dir = tempfile.mkdtemp()
+        try:
+            join_files(carrier_path, container_path, output_path, "pwd")
+
+            # Фабрикуем метаданные со злонамеренным именем контейнера
+            from hideMyLute.footer import pack_footer
+
+            evil_footer = pack_footer(
+                carrier_path,
+                container_path,
+                "pwd",
+                container_name="..\\..\\..\\evil.bin",
+            )
+            data = Path(output_path).read_bytes()
+            # Пересобираем: отрезаем старый футер и пишем новый
+            from hideMyLute.footer import read_footer_size
+
+            old_footer_size = read_footer_size(output_path)
+            body = data[:-old_footer_size]
+            Path(output_path).write_bytes(body + evil_footer)
+
+            container_out, _ = split_file(output_path, out_dir, "pwd")
+            # Имя должно быть только "evil.bin" внутри out_dir
+            assert Path(container_out).parent == Path(out_dir)
+            assert Path(container_out).name == "evil.bin"
+        finally:
+            for p in (carrier_path, container_path, output_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+            for leftover in Path(out_dir).iterdir():
+                leftover.unlink()
+            os.rmdir(out_dir)
+
+    def test_split_v1_file_backward_compat(self) -> None:
+        """Файл формата v1 разделяется в v2 (обратная совместимость)."""
+        from hideMyLute.tests.test_footer import TestUnpackFooter
+
+        combined = TestUnpackFooter._make_combined_v1(200, 100, "pwd")
+        out_dir = tempfile.mkdtemp()
+        try:
+            container_out, metadata = split_file(str(combined), out_dir, "pwd")
+            assert metadata["carrier_size"] == 200
+            assert metadata["container_size"] == 100
+            assert Path(container_out).read_bytes() == Path(combined).read_bytes()[
+                200:300
+            ]
+        finally:
+            try:
+                os.unlink(combined)
+            except OSError:
+                pass
+            for leftover in Path(out_dir).iterdir():
+                leftover.unlink()
+            os.rmdir(out_dir)
+
+    def test_join_empty_carrier_and_container(self) -> None:
+        """Пустые носитель и контейнер: join и split проходят."""
+        carrier_path, container_path, output_path = self._make_sources(b"", b"")
+        out_dir = tempfile.mkdtemp()
+        try:
+            join_files(carrier_path, container_path, output_path, "pwd")
+            container_out, metadata = split_file(output_path, out_dir, "pwd")
+            assert metadata["carrier_size"] == 0
+            assert metadata["container_size"] == 0
+            assert Path(container_out).read_bytes() == b""
+        finally:
+            for p in (carrier_path, container_path, output_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+            for leftover in Path(out_dir).iterdir():
+                leftover.unlink()
+            os.rmdir(out_dir)
+
+
+class TestGenerateOutputPathMore:
+    """Дополнительные тесты generate_output_path."""
+
+    def test_same_as_carrier_collision_adds_suffix(self) -> None:
+        """SAME_AS_CARRIER при занятом имени добавляет числовой суффикс."""
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=".mp4"
+        ) as fh:
+            fh.write(b"carrier")
+            fh.flush()
+            carrier = fh.name
+
+        try:
+            stem = Path(carrier).stem
+            # Занимаем имя "_joined"
+            occupied = Path(carrier).with_name(f"{stem}_joined.mp4")
+            occupied.write_bytes(b"taken")
+
+            result = generate_output_path(
+                carrier, strategy=NamingStrategy.SAME_AS_CARRIER
+            )
+            assert result.suffix == ".mp4"
+            assert result.name != occupied.name
+            assert not result.exists()
+            os.unlink(occupied)
+        finally:
+            os.unlink(carrier)

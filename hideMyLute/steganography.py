@@ -3,19 +3,21 @@
 Операции:
 - join_files: копирует носитель, дописывает контейнер, затем футер
   с зашифрованными метаданными.
-- split_file: читает футер, сверяет хеш носителя, отрезает контейнер.
+- split_file: читает футер, сверяет хеши носителя и контейнера,
+  отрезает контейнер.
 - generate_output_path: генерирует правдоподобное имя выходного файла.
 """
 
 from __future__ import annotations
 
+import os
 import uuid
 from enum import Enum, auto
 from pathlib import Path
 
 from .config import CHUNK_SIZE
 from .exceptions import FileOperationError, FooterError, ValidationError
-from .footer import pack_footer, unpack_footer
+from .footer import pack_footer, read_footer_size, sha256_region, unpack_footer
 
 
 class NamingStrategy(Enum):
@@ -78,7 +80,14 @@ def generate_output_path(
         stem = carrier.stem
         suffix = carrier.suffix
         candidate = base_dir / f"{stem}_joined{suffix}"
-        return candidate
+        if not candidate.exists():
+            return candidate
+        counter = 2
+        while True:
+            candidate = base_dir / f"{stem}_joined ({counter}){suffix}"
+            if not candidate.exists():
+                return candidate
+            counter += 1
 
     # WINDOWS_STYLE: числовой суффикс
     stem = carrier.stem
@@ -108,6 +117,10 @@ def join_files(
     2. Дописывает контейнер в конец output_path.
     3. Формирует и дописывает зашифрованный футер с метаданными.
 
+    Хеши носителя и контейнера вычисляются по фактически записанным
+    регионам выходного файла, а не по исходным файлам (устраняет
+    TOCTOU между копированием и хешированием).
+
     Args:
         carrier_path: Путь к файлу-носителю.
         container_path: Путь к файлу-контейнеру.
@@ -132,12 +145,25 @@ def join_files(
     try:
         # 1. Копируем носитель
         _copy_file(carrier, output)
+        carrier_size = output.stat().st_size
+        carrier_hash = sha256_region(output, 0, carrier_size)
 
         # 2. Дописываем контейнер
         _append_file(container, output)
+        container_size = output.stat().st_size - carrier_size
+        container_hash = sha256_region(output, carrier_size, container_size)
 
         # 3. Формируем и дописываем футер
-        footer = pack_footer(str(carrier), str(container), password)
+        footer = pack_footer(
+            str(carrier),
+            str(container),
+            password,
+            carrier_size=carrier_size,
+            container_size=container_size,
+            carrier_hash=carrier_hash,
+            container_hash=container_hash,
+            container_name=container.name,
+        )
         with open(output, "ab") as fh:
             fh.write(footer)
 
@@ -162,8 +188,9 @@ def split_file(
 
     Процесс:
     1. Читает и расшифровывает футер.
-    2. Проверяет SHA-256 хеш части носителя в файле.
-    3. Отрезает контейнер, сохраняет в output_dir.
+    2. Проверяет SHA-256 хеши регионов носителя и (для формата v2)
+       контейнера.
+    3. Отрезает контейнер, сохраняет в output_dir с исходным именем.
 
     Args:
         combined_path: Путь к собранному файлу.
@@ -179,8 +206,6 @@ def split_file(
         CryptoError: При неверном пароле.
         FileOperationError: При ошибке записи.
     """
-    import hashlib
-
     combined = Path(combined_path)
     out_dir = Path(output_dir)
 
@@ -196,9 +221,10 @@ def split_file(
     carrier_size = metadata["carrier_size"]
     container_size = metadata["container_size"]
     expected_hash = metadata["carrier_hash_sha256"]
+    expected_container_hash = metadata.get("container_hash_sha256")
 
     combined_size = combined.stat().st_size
-    footer_size = _compute_footer_size(combined)
+    footer_size = read_footer_size(combined)
 
     # Проверяем, что размеры сходятся
     expected_total = carrier_size + container_size + footer_size
@@ -211,19 +237,8 @@ def split_file(
             expected=expected_total,
         )
 
-    # 2. Проверяем SHA-256 части носителя (первые carrier_size байт)
-    sha256 = hashlib.sha256()
-    with open(combined, "rb") as fh:
-        remaining = carrier_size
-        while remaining > 0:
-            chunk_size = min(CHUNK_SIZE, remaining)
-            chunk = fh.read(chunk_size)
-            if not chunk:
-                break
-            sha256.update(chunk)
-            remaining -= len(chunk)
-
-    actual_hash = sha256.hexdigest()
+    # 2. Проверяем SHA-256 региона носителя (первые carrier_size байт)
+    actual_hash = sha256_region(str(combined), 0, carrier_size)
     if actual_hash != expected_hash:
         raise FooterError(
             "Хеш носителя не совпадает. Файл-носитель был изменён "
@@ -231,9 +246,21 @@ def split_file(
             msg_key="error_hash_mismatch",
         )
 
+    # 2b. Проверяем SHA-256 региона контейнера (формат v2)
+    if expected_container_hash is not None:
+        actual_container_hash = sha256_region(
+            str(combined), carrier_size, container_size
+        )
+        if actual_container_hash != expected_container_hash:
+            raise FooterError(
+                "Хеш контейнера не совпадает. Контейнер был изменён "
+                "после сборки.",
+                msg_key="error_container_hash_mismatch",
+            )
+
     # 3. Извлекаем контейнер
-    container_name = f"container_{uuid.uuid4().hex[:8]}"
-    container_path = out_dir / container_name
+    container_name = _safe_container_name(metadata.get("container_name"))
+    container_path = _allocate_container_path(out_dir, container_name)
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -257,6 +284,39 @@ def split_file(
         ) from exc
 
     return container_path, metadata
+
+
+def _safe_container_name(raw_name: str | None) -> str:
+    """Возвращает безопасное имя файла контейнера.
+
+    Отбрасывает любые компоненты пути (защита от path traversal),
+    пустые и служебные имена. При отсутствии валидного имени
+    генерирует случайное.
+    """
+    if raw_name:
+        name = Path(raw_name).name
+        if name and name not in (".", ".."):
+            return name
+    return f"container_{uuid.uuid4().hex[:8]}"
+
+
+def _allocate_container_path(out_dir: Path, name: str) -> Path:
+    """Подбирает свободное имя файла контейнера в каталоге.
+
+    Не перезаписывает существующие файлы: при занятости имени
+    добавляет числовой суффикс (имя (2).ext, имя (3).ext, ...).
+    """
+    candidate = out_dir / name
+    if not candidate.exists():
+        return candidate
+
+    stem, suffix = os.path.splitext(name)
+    counter = 2
+    while True:
+        candidate = out_dir / f"{stem} ({counter}){suffix}"
+        if not candidate.exists():
+            return candidate
+        counter += 1
 
 
 def _validate_paths(
@@ -324,16 +384,3 @@ def _append_file(src: Path, dst: Path) -> None:
             dst=str(dst),
             error=str(exc),
         ) from exc
-
-
-def _compute_footer_size(combined: Path) -> int:
-    """Вычисляет полный размер футера в файле."""
-    import struct
-
-    from .config import FOOTER_HEADER_SIZE
-
-    with open(combined, "rb") as fh:
-        fh.seek(-FOOTER_HEADER_SIZE, 2)
-        header = fh.read(FOOTER_HEADER_SIZE)
-    _, _, _, payload_len = struct.unpack(">4sHHI", header)
-    return FOOTER_HEADER_SIZE + payload_len

@@ -15,12 +15,32 @@ from typing import ClassVar
 MAGIC_BYTES: bytes = b'HMLF'
 """Сигнатура футера: 4 байта в начале футера для идентификации формата."""
 
-FOOTER_VERSION: int = 1
-"""Версия формата футера (для будущей обратной совместимости)."""
+FOOTER_VERSION: int = 2
+"""Версия формата футера (для будущей обратной совместимости).
+
+v2 (текущая): magic-поле заголовка — случайные байты (не содержит
+детектируемой сигнатуры), метаданные включают ``container_hash_sha256``
+и ``container_name``, отсутствует ``timestamp``.
+"""
+
+FOOTER_VERSION_V1: int = 1
+"""Версия формата футера v1 (legacy): фиксированный magic b'HMLF'."""
 
 FOOTER_HEADER_SIZE: int = 12
 """Размер заголовка футера в байтах:
-4 (magic) + 2 (version) + 2 (flags) + 4 (footer_len)."""
+4 (magic/случайные байты) + 2 (version) + 2 (flags) + 4 (footer_len)."""
+
+MIN_FOOTER_PAYLOAD_LEN: int = 60
+"""Минимальный размер payload футера: salt(32) + nonce(12) + GCM tag(16).
+
+Используется для отбраковки случайных файлов при поиске футера.
+"""
+
+MAX_FOOTER_PAYLOAD_LEN: int = 1024 * 1024
+"""Максимальный размер payload футера (1 МБ).
+
+Защита от чтения гигантских нерелевантных блоков из случайного файла.
+"""
 
 PBKDF2_ITERATIONS: int = 600_000
 """Количество итераций PBKDF2-HMAC-SHA256 согласно OWASP 2023."""
@@ -33,6 +53,9 @@ AES_KEY_SIZE: int = 32
 
 AES_NONCE_SIZE: int = 12
 """Размер nonce для AES-256-GCM (рекомендация NIST: 96 бит)."""
+
+AES_GCM_TAG_SIZE: int = 16
+"""Размер тега аутентификации AES-GCM в байтах."""
 
 CHUNK_SIZE: int = 1024 * 1024
 """Размер буфера для потокового копирования файлов (1 МБ)."""
@@ -77,6 +100,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_hash_mismatch": (
             "Хеш носителя не совпадает. Файл-носитель был изменён после сборки."
         ),
+        "error_container_hash_mismatch": (
+            "Хеш контейнера не совпадает. Контейнер был изменён после сборки."
+        ),
+        "error_password_too_long": (
+            "Пароль слишком длинный (максимум {max_len} символов)."
+        ),
+        "error_operation_cancelled": "Операция отменена.",
         "error_footer_too_small": "Файл слишком мал для содержания футера.",
         "error_footer_version": (
             "Несовместимая версия футера: {version} (ожидается {expected})."
@@ -141,6 +171,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_hash_mismatch": (
             "Carrier hash mismatch. The carrier file was modified after assembly."
         ),
+        "error_container_hash_mismatch": (
+            "Container hash mismatch. The container was modified after assembly."
+        ),
+        "error_password_too_long": (
+            "Password is too long (maximum {max_len} characters)."
+        ),
+        "error_operation_cancelled": "Operation cancelled.",
         "error_footer_too_small": "File is too small to contain a footer.",
         "error_footer_version": (
             "Incompatible footer version: {version} (expected {expected})."
