@@ -7,7 +7,7 @@ from typing import Any
 
 import customtkinter as ctk
 
-from ..config import MIN_PASSWORD_LENGTH, AppConfig
+from ..config import MAX_PASSWORD_LENGTH, AppConfig
 from ..exceptions import HideMyLuteError
 from ..steganography import split_file
 from ..worker import BackgroundWorker
@@ -115,8 +115,12 @@ class SplitPanel(ctk.CTkFrame):
         if not pwd:
             self._on_status(t("status_not_ready"))
             return
-        if len(pwd) < MIN_PASSWORD_LENGTH:
-            self._on_status(t("error_password_short"))
+        # Минимальная длина не проверяется при разделении — это сохраняет
+        # совместимость с legacy-файлами, собранными слабым паролем.
+        if len(pwd) > MAX_PASSWORD_LENGTH:
+            self._on_status(
+                t("error_password_too_long", max_len=str(MAX_PASSWORD_LENGTH))
+            )
             return
         self._on_status(t("status_ready_split"))
 
@@ -145,8 +149,10 @@ class SplitPanel(ctk.CTkFrame):
         if not password:
             self._on_status(t("error_password_empty"))
             return
-        if len(password) < MIN_PASSWORD_LENGTH:
-            self._on_status(t("error_password_short"))
+        if len(password) > MAX_PASSWORD_LENGTH:
+            self._on_status(
+                t("error_password_too_long", max_len=str(MAX_PASSWORD_LENGTH))
+            )
             return
 
         output_dir = combined.parent

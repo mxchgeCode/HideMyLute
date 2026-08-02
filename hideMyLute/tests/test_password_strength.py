@@ -64,9 +64,9 @@ class TestPasswordStrength:
     @pytest.mark.parametrize(
         "password",
         [
-            "Tr0ub4dor&3",
-            "Kj7#dF2$qZ",
-            "Xk9#mQ4&zR7",
+            "Tr0ub4dor&3x",
+            "Kj7#dF2$qZx9",
+            "Xk9#mQ4&zR7$aB",
             "correct horse battery staple",
         ],
     )
@@ -77,18 +77,22 @@ class TestPasswordStrength:
     @pytest.mark.parametrize(
         "password",
         [
-            "x7K#2mQ9",
-            "aB3$eF7kL",
-            "PaSsW0rD99",
-            "mySecure123",
-            "1qaz2wsx!X",
+            "mnopqrstuvwx",
+            "abcdefghijkl",
+            "zyxwvutsrqpn",
+            "1qazxsw23edc",
         ],
     )
     def test_medium_passwords_are_ok(self, password: str) -> None:
-        """Смешанные пароли средней длины — приемлемые."""
+        """Пароли средней сложности длиной от 12 символов — приемлемые."""
         assert assess_password_strength(password) is Strength.OK
 
     def test_short_varied_password_is_not_strong(self) -> None:
         """Короткий пароль даже с разнообразием не может быть надёжным."""
         result = assess_password_strength("aB3$eF")
         assert result is not Strength.STRONG
+
+    def test_passwords_shorter_than_minimum_are_weak(self) -> None:
+        """Короче минимальной длины (12) — всегда слабый, даже разнообразный."""
+        assert assess_password_strength("Tr0ub4dor") is Strength.WEAK
+        assert assess_password_strength("Abcd1234!") is Strength.WEAK

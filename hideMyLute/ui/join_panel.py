@@ -7,7 +7,7 @@ from typing import Any
 
 import customtkinter as ctk
 
-from ..config import MIN_PASSWORD_LENGTH, AppConfig
+from ..config import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, AppConfig
 from ..exceptions import HideMyLuteError
 from ..password_strength import Strength, assess_password_strength
 from ..steganography import generate_output_path, join_files
@@ -206,11 +206,23 @@ class JoinPanel(ctk.CTkFrame):
         self._check_password_match(pwd, confirm)
 
     def _check_password_match(self, pwd: str, confirm: str) -> None:
-        """Сравнивает пароль и подтверждение, обновляет статус-бар."""
+        """Сравнивает пароль и подтверждение, обновляет статус-бар.
+
+        Дополнительно проверяет политику длины пароля (минимум и максимум).
+        """
+        t = self._config.t
+        if len(pwd) < MIN_PASSWORD_LENGTH:
+            self._on_status(t("error_password_short"))
+            return
+        if len(pwd) > MAX_PASSWORD_LENGTH:
+            self._on_status(
+                t("error_password_too_long", max_len=str(MAX_PASSWORD_LENGTH))
+            )
+            return
         if pwd != confirm:
-            self._on_status(self._config.t("password_mismatch"))
+            self._on_status(t("password_mismatch"))
         else:
-            self._on_status(self._config.t("status_ready_join"))
+            self._on_status(t("status_ready_join"))
 
     def _on_join(self) -> None:
         """Обработчик нажатия кнопки «Соединить»."""
@@ -232,6 +244,11 @@ class JoinPanel(ctk.CTkFrame):
             return
         if len(password) < MIN_PASSWORD_LENGTH:
             self._on_status(t("error_password_short"))
+            return
+        if len(password) > MAX_PASSWORD_LENGTH:
+            self._on_status(
+                t("error_password_too_long", max_len=str(MAX_PASSWORD_LENGTH))
+            )
             return
         if password != confirm:
             self._on_status(t("password_mismatch"))

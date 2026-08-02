@@ -15,7 +15,7 @@ import uuid
 from enum import Enum, auto
 from pathlib import Path
 
-from .config import CHUNK_SIZE
+from .config import CHUNK_SIZE, MIN_PASSWORD_LENGTH
 from .exceptions import FileOperationError, FooterError, ValidationError
 from .footer import pack_footer, read_footer_size, sha256_region, unpack_footer
 
@@ -141,6 +141,15 @@ def join_files(
 
     # Валидация входных параметров
     _validate_paths(carrier, container, output)
+
+    # Политика пароля: слабый пароль недопустим при создании футера.
+    # (при разделении минимальная длина не проверяется — это сохраняет
+    #  совместимость с legacy-файлами, собранными слабым паролем)
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise ValidationError(
+            f"Пароль должен быть не менее {MIN_PASSWORD_LENGTH} символов",
+            msg_key="error_password_short",
+        )
 
     try:
         # 1. Копируем носитель

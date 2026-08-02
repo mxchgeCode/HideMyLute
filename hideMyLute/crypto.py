@@ -18,6 +18,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from .config import (
     AES_KEY_SIZE,
     AES_NONCE_SIZE,
+    MAX_PASSWORD_LENGTH,
     PBKDF2_ITERATIONS,
     PBKDF2_SALT_SIZE,
 )
@@ -42,6 +43,13 @@ def derive_key(password: str, salt: bytes | None = None) -> tuple[bytes, bytes]:
     """
     if not password:
         raise CryptoError("Пароль не может быть пустым", msg_key="error_password_empty")
+
+    if len(password) > MAX_PASSWORD_LENGTH:
+        raise CryptoError(
+            f"Пароль слишком длинный (максимум {MAX_PASSWORD_LENGTH} символов)",
+            msg_key="error_password_too_long",
+            max_len=str(MAX_PASSWORD_LENGTH),
+        )
 
     if salt is None:
         salt = os.urandom(PBKDF2_SALT_SIZE)

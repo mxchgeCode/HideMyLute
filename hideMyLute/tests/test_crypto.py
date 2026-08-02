@@ -46,6 +46,13 @@ class TestDeriveKey:
         with pytest.raises(CryptoError, match="Соль должна быть длиной"):
             derive_key("password", b"short")
 
+    def test_too_long_password_raises_crypto_error(self) -> None:
+        """Пароль длиннее MAX_PASSWORD_LENGTH: CryptoError (DoS-защита)."""
+        from hideMyLute.config import MAX_PASSWORD_LENGTH
+
+        with pytest.raises(CryptoError, match="слишком длинный"):
+            derive_key("p" * (MAX_PASSWORD_LENGTH + 1))
+
 
 class TestEncryptDecryptAesGcm:
     """Тесты AES-256-GCM шифрования/расшифрования."""

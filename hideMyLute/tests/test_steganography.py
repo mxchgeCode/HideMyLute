@@ -178,7 +178,7 @@ class TestJoinAndSplit:
             container_path = v.name
             output_path = c.name + ".joined"
 
-            join_files(carrier_path, container_path, output_path, "correct")
+            join_files(carrier_path, container_path, output_path, "correct_password")
             out_dir = tempfile.mkdtemp()
             try:
                 with pytest.raises(
@@ -289,7 +289,7 @@ class TestJoinSplitEdgeCases:
         )
         out_dir = tempfile.mkdtemp()
         try:
-            join_files(carrier_path, container_path, output_path, "pwd")
+            join_files(carrier_path, container_path, output_path, "password123456")
 
             # Повреждаем байт в регионе контейнера
             data = bytearray(Path(output_path).read_bytes())
@@ -297,7 +297,7 @@ class TestJoinSplitEdgeCases:
             Path(output_path).write_bytes(bytes(data))
 
             with pytest.raises(FooterError, match="контейнера"):
-                split_file(output_path, out_dir, "pwd")
+                split_file(output_path, out_dir, "password123456")
         finally:
             for p in (carrier_path, container_path, output_path):
                 try:
@@ -316,11 +316,11 @@ class TestJoinSplitEdgeCases:
         )
         out_dir = tempfile.mkdtemp()
         try:
-            join_files(carrier_path, container_path, output_path, "pwd")
+            join_files(carrier_path, container_path, output_path, "password123456")
             data = Path(output_path).read_bytes()
             Path(output_path).write_bytes(data[:-1])
             with pytest.raises(FooterError):
-                split_file(output_path, out_dir, "pwd")
+                split_file(output_path, out_dir, "password123456")
         finally:
             for p in (carrier_path, container_path, output_path):
                 try:
@@ -339,8 +339,8 @@ class TestJoinSplitEdgeCases:
         )
         out_dir = tempfile.mkdtemp()
         try:
-            join_files(carrier_path, container_path, output_path, "pwd")
-            container_out, _ = split_file(output_path, out_dir, "pwd")
+            join_files(carrier_path, container_path, output_path, "password123456")
+            container_out, _ = split_file(output_path, out_dir, "password123456")
             # Имя контейнера = имя исходного файла контейнера
             assert Path(container_out).name == Path(container_path).name
             assert Path(container_out).suffix == Path(container_path).suffix
@@ -362,14 +362,14 @@ class TestJoinSplitEdgeCases:
         )
         out_dir = tempfile.mkdtemp()
         try:
-            join_files(carrier_path, container_path, output_path, "pwd")
+            join_files(carrier_path, container_path, output_path, "password123456")
 
             # Занимаем имя, которое будет у извлечённого контейнера
             container_name = Path(container_path).name
             occupied = Path(out_dir) / container_name
             occupied.write_bytes(b"original")
 
-            container_out, _ = split_file(output_path, out_dir, "pwd")
+            container_out, _ = split_file(output_path, out_dir, "password123456")
             assert container_out != occupied
             assert occupied.read_bytes() == b"original"
             assert Path(container_out).read_bytes() == b"\xFF" * 100
@@ -390,7 +390,7 @@ class TestJoinSplitEdgeCases:
         )
         out_dir = tempfile.mkdtemp()
         try:
-            join_files(carrier_path, container_path, output_path, "pwd")
+            join_files(carrier_path, container_path, output_path, "password123456")
 
             # Фабрикуем метаданные со злонамеренным именем контейнера
             from hideMyLute.footer import pack_footer
@@ -398,7 +398,7 @@ class TestJoinSplitEdgeCases:
             evil_footer = pack_footer(
                 carrier_path,
                 container_path,
-                "pwd",
+                "password123456",
                 container_name="..\\..\\..\\evil.bin",
             )
             data = Path(output_path).read_bytes()
@@ -409,7 +409,7 @@ class TestJoinSplitEdgeCases:
             body = data[:-old_footer_size]
             Path(output_path).write_bytes(body + evil_footer)
 
-            container_out, _ = split_file(output_path, out_dir, "pwd")
+            container_out, _ = split_file(output_path, out_dir, "password123456")
             # Имя должно быть только "evil.bin" внутри out_dir
             assert Path(container_out).parent == Path(out_dir)
             assert Path(container_out).name == "evil.bin"
@@ -445,13 +445,28 @@ class TestJoinSplitEdgeCases:
                 leftover.unlink()
             os.rmdir(out_dir)
 
+    def test_join_short_password_rejected(self) -> None:
+        """Слабый (короткий) пароль при join отклоняется (BLK-02)."""
+        carrier_path, container_path, output_path = self._make_sources(
+            b"\x00" * 50, b"\xFF" * 30
+        )
+        try:
+            with pytest.raises(ValidationError, match="не менее"):
+                join_files(carrier_path, container_path, output_path, "short")
+        finally:
+            for p in (carrier_path, container_path, output_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+
     def test_join_empty_carrier_and_container(self) -> None:
         """Пустые носитель и контейнер: join и split проходят."""
         carrier_path, container_path, output_path = self._make_sources(b"", b"")
         out_dir = tempfile.mkdtemp()
         try:
-            join_files(carrier_path, container_path, output_path, "pwd")
-            container_out, metadata = split_file(output_path, out_dir, "pwd")
+            join_files(carrier_path, container_path, output_path, "password123456")
+            container_out, metadata = split_file(output_path, out_dir, "password123456")
             assert metadata["carrier_size"] == 0
             assert metadata["container_size"] == 0
             assert Path(container_out).read_bytes() == b""
