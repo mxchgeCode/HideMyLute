@@ -364,7 +364,9 @@ def _safe_container_name(raw_name: str | None) -> str:
     генерирует случайное.
     """
     if raw_name:
-        name = Path(raw_name).name
+        # Нормализуем оба разделителя пути: на POSIX обратный слеш —
+        # допустимый символ имени, и Path.name его не отбросит.
+        name = Path(raw_name.replace("\\", "/")).name
         if name and name not in (".", ".."):
             return name
     return f"container_{uuid.uuid4().hex[:8]}"
