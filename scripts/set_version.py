@@ -43,6 +43,8 @@ def set_version(tag: str) -> None:
 
 
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     set_version(sys.argv[1])
