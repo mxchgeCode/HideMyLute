@@ -23,8 +23,6 @@ class SplitPanel(ctk.CTkFrame):
         config: AppConfig,
         worker: BackgroundWorker,
         on_status: Any,
-        progress_show: Any,
-        progress_hide: Any,
         **kwargs: Any,
     ) -> None:
         """Инициализирует панель разделения.
@@ -34,15 +32,15 @@ class SplitPanel(ctk.CTkFrame):
             config: Конфигурация приложения (DI).
             worker: Фоновый воркер (DI).
             on_status: Callback для строки статуса.
-            progress_show: Callback показа прогресс-оверлея.
-            progress_hide: Callback скрытия прогресс-оверлея.
         """
         super().__init__(parent, **kwargs)
         self._config = config
         self._worker = worker
         self._on_status = on_status
-        self._progress_show = progress_show
-        self._progress_hide = progress_hide
+
+        self._completed_path: Path | None = None
+        self._error: str | HideMyLuteError | None = None
+        self._processing: bool = False
 
         self._build_ui()
 
@@ -55,6 +53,7 @@ class SplitPanel(ctk.CTkFrame):
             self,
             label=t("combined_file"),
             browse_text=t("browse"),
+            trace_callback=self._on_file_changed,
         )
         self._combined.pack(fill="x", padx=10, pady=(5, 0))
 
@@ -62,6 +61,7 @@ class SplitPanel(ctk.CTkFrame):
         self._password = PasswordField(
             self,
             label=t("password"),
+            trace_callback=self._on_password_changed,
         )
         self._password.pack(fill="x", padx=10)
 
@@ -69,11 +69,20 @@ class SplitPanel(ctk.CTkFrame):
         self._split_btn = ctk.CTkButton(
             self,
             text=t("split_btn"),
-            height=38,
-            font=ctk.CTkFont(size=14, weight="bold"),
+            height=60,
+            font=ctk.CTkFont(size=28, weight="bold"),
             command=self._on_split,
         )
         self._split_btn.pack(pady=15)
+
+        # Прогресс-бар (индикатор неопределённого прогресса, скрыт по умолчанию)
+        self._progress_bar = ctk.CTkProgressBar(
+            self,
+            mode="indeterminate",
+            height=16,
+        )
+        self._progress_bar.pack(fill="x", padx=10, pady=(0, 5))
+        self._progress_bar.pack_forget()
 
     def update_language(self) -> None:
         """Обновляет тексты всех виджетов при смене языка."""
@@ -87,6 +96,18 @@ class SplitPanel(ctk.CTkFrame):
         """Пересчитывает статус-бар по текущему состоянию полей."""
         t = self._config.t
 
+        if self._processing:
+            self._on_status(t("status_processing"))
+            return
+        if self._error is not None:
+            self._on_status(self._format_error(self._error))
+            return
+        if self._completed_path is not None:
+            self._on_status(
+                f"{t('status_completed_split')} \u2014 {self._completed_path}",
+                click_path=self._completed_path,
+            )
+            return
         if not self._combined.path_or_none:
             self._on_status(t("status_not_ready"))
             return
@@ -98,6 +119,18 @@ class SplitPanel(ctk.CTkFrame):
             self._on_status(t("error_password_short"))
             return
         self._on_status(t("status_ready_split"))
+
+    def _on_file_changed(self, *args: Any) -> None:
+        """Сбрасывает состояние завершённой операции при смене файла."""
+        self._completed_path = None
+        self._error = None
+        self.refresh_status()
+
+    def _on_password_changed(self, *args: Any) -> None:
+        """Сбрасывает состояние завершённой операции при смене пароля."""
+        self._completed_path = None
+        self._error = None
+        self.refresh_status()
 
     def _on_split(self) -> None:
         """Обработчик нажатия кнопки «Разделить»."""
@@ -119,7 +152,11 @@ class SplitPanel(ctk.CTkFrame):
         output_dir = combined.parent
 
         self._split_btn.configure(state="disabled")
-        self._progress_show(t("progress_split"))
+        self._processing = True
+        self._completed_path = None
+        self._error = None
+        self._progress_bar.pack(fill="x", padx=10, pady=(0, 5))
+        self._progress_bar.start()
         self._on_status(t("status_processing"))
 
         self._worker.run(
@@ -131,6 +168,13 @@ class SplitPanel(ctk.CTkFrame):
             root=self.winfo_toplevel(),
         )
 
+    def _format_error(self, error: str | HideMyLuteError) -> str:
+        """Возвращает переведённое сообщение об ошибке целиком."""
+        return (
+            f"{self._config.t('error_title')}: "
+            f"{self._translate_error(error)}"
+        )
+
     def _translate_error(self, error: str | HideMyLuteError) -> str:
         """Возвращает переведённое сообщение об ошибке."""
         if isinstance(error, HideMyLuteError) and error.msg_key:
@@ -140,18 +184,21 @@ class SplitPanel(ctk.CTkFrame):
     def _on_split_success(self, result: tuple[Path, dict]) -> None:
         """Callback при успешном разделении."""
         container_path, _metadata = result
+        self._completed_path = container_path
         t = self._config.t
         self._on_status(
-            f"{t('status_completed_split')} \u2014 {container_path}"
+            f"{t('status_completed_split')} \u2014 {container_path}",
+            click_path=container_path,
         )
 
     def _on_split_error(self, error: str | HideMyLuteError) -> None:
         """Callback при ошибке разделения."""
-        self._on_status(
-            f"{self._config.t('error_title')}: {self._translate_error(error)}"
-        )
+        self._error = error
+        self._on_status(self._format_error(error))
 
     def _on_split_finish(self) -> None:
         """Callback по завершении (всегда)."""
-        self._progress_hide()
+        self._processing = False
+        self._progress_bar.stop()
+        self._progress_bar.pack_forget()
         self._split_btn.configure(state="normal")

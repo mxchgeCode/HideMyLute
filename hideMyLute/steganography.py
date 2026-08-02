@@ -64,7 +64,9 @@ def generate_output_path(
 
     if not carrier.exists():
         raise ValidationError(
-            f"Файл-носитель не найден: {carrier}"
+            f"Файл-носитель не найден: {carrier}",
+            msg_key="error_carrier_not_found",
+            path=str(carrier),
         )
 
     if strategy is NamingStrategy.UUID:
@@ -145,7 +147,9 @@ def join_files(
         raise
     except OSError as exc:
         raise FileOperationError(
-            f"Ошибка при соединении файлов: {exc}"
+            f"Ошибка при соединении файлов: {exc}",
+            msg_key="error_join_failed",
+            error=str(exc),
         ) from exc
 
 
@@ -181,7 +185,11 @@ def split_file(
     out_dir = Path(output_dir)
 
     if not combined.exists():
-        raise ValidationError(f"Файл не найден: {combined}")
+        raise ValidationError(
+            f"Файл не найден: {combined}",
+            msg_key="error_file_not_found",
+            path=str(combined),
+        )
 
     # 1. Извлекаем метаданные из футера
     metadata = unpack_footer(str(combined), password)
@@ -197,7 +205,10 @@ def split_file(
     if combined_size != expected_total:
         raise FooterError(
             f"Размер файла ({combined_size}) не соответствует "
-            f"ожидаемому ({expected_total}). Файл мог быть изменён."
+            f"ожидаемому ({expected_total}). Файл мог быть изменён.",
+            msg_key="error_size_mismatch",
+            size=combined_size,
+            expected=expected_total,
         )
 
     # 2. Проверяем SHA-256 части носителя (первые carrier_size байт)
@@ -216,7 +227,8 @@ def split_file(
     if actual_hash != expected_hash:
         raise FooterError(
             "Хеш носителя не совпадает. Файл-носитель был изменён "
-            "после сборки."
+            "после сборки.",
+            msg_key="error_hash_mismatch",
         )
 
     # 3. Извлекаем контейнер
@@ -239,7 +251,9 @@ def split_file(
                     remaining -= len(chunk)
     except OSError as exc:
         raise FileOperationError(
-            f"Ошибка при извлечении контейнера: {exc}"
+            f"Ошибка при извлечении контейнера: {exc}",
+            msg_key="error_extract_failed",
+            error=str(exc),
         ) from exc
 
     return container_path, metadata
@@ -251,19 +265,26 @@ def _validate_paths(
     """Валидирует входные пути для операции соединения."""
     if not carrier.exists():
         raise ValidationError(
-            f"Файл-носитель не найден: {carrier}"
+            f"Файл-носитель не найден: {carrier}",
+            msg_key="error_carrier_not_found",
+            path=str(carrier),
         )
     if not container.exists():
         raise ValidationError(
-            f"Файл-контейнер не найден: {container}"
+            f"Файл-контейнер не найден: {container}",
+            msg_key="error_container_not_found",
+            path=str(container),
         )
     if carrier.resolve() == container.resolve():
         raise ValidationError(
-            "Файл-носитель и контейнер не могут быть одним файлом"
+            "Файл-носитель и контейнер не могут быть одним файлом",
+            msg_key="error_same_file",
         )
     if output.exists():
         raise FileOperationError(
-            f"Выходной файл уже существует: {output}"
+            f"Выходной файл уже существует: {output}",
+            msg_key="error_output_exists",
+            path=str(output),
         )
 
 
@@ -278,7 +299,11 @@ def _copy_file(src: Path, dst: Path) -> None:
                 fh_dst.write(chunk)
     except OSError as exc:
         raise FileOperationError(
-            f"Ошибка копирования {src} → {dst}: {exc}"
+            f"Ошибка копирования {src} → {dst}: {exc}",
+            msg_key="error_copy_failed",
+            src=str(src),
+            dst=str(dst),
+            error=str(exc),
         ) from exc
 
 
@@ -293,7 +318,11 @@ def _append_file(src: Path, dst: Path) -> None:
                 fh_dst.write(chunk)
     except OSError as exc:
         raise FileOperationError(
-            f"Ошибка дописывания {src} → {dst}: {exc}"
+            f"Ошибка дописывания {src} → {dst}: {exc}",
+            msg_key="error_append_failed",
+            src=str(src),
+            dst=str(dst),
+            error=str(exc),
         ) from exc
 
 

@@ -34,9 +34,9 @@ pip install -r requirements.txt
 
 ## Зависимости
 
-- [`cryptography`](https://cryptography.io) ≥ 42.0 — AES-256-GCM,
+- [`cryptography`](https://cryptography.io) ≥ 50.0 — AES-256-GCM,
   PBKDF2HMAC
-- [`customtkinter`](https://customtkinter.tomschimansky.com) ≥ 5.2 —
+- [`customtkinter`](https://customtkinter.tomschimansky.com) ≥ 6.0 —
   современный GUI на базе tkinter
 - `pytest`, `pytest-cov`, `ruff` — только для разработки
 
@@ -58,6 +58,9 @@ python -m hideMyLute
 ```python
 from hideMyLute.steganography import join_files, split_file
 from hideMyLute.steganography import generate_output_path, NamingStrategy
+from hideMyLute import __version__
+
+print(__version__)  # 2.0.3
 
 # Соединение
 output = join_files(
@@ -83,6 +86,13 @@ path = generate_output_path(
 )
 ```
 
+Версию приложения можно получить без запуска GUI:
+
+```bash
+python -m hideMyLute --version
+# hideMyLute 2.0.3
+```
+
 ## Структура футера
 
 ```
@@ -105,6 +115,22 @@ path = generate_output_path(
 - Магические байты `b'HMLF'` всегда в последних 12 байтах
 - Расширение совпадает с расширением носителя
 - Нет внешних файлов метаданных
+
+## Версионирование
+
+Версия приложения — `MAJOR.MINOR.PATCH` (см. `hideMyLute/_version.py`):
+
+- **MAJOR** — несовместимые изменения формата футера или публичного API
+- **MINOR** — новые возможности
+- **PATCH** — количество изменений (исправлений и доработок) с момента
+  предыдущего минорного релиза
+
+Единый источник версии — модуль `hideMyLute/_version.py`; `__version__`
+в `hideMyLute/__init__.py` импортируется из него. Версия выводится в
+заголовке окна и через `python -m hideMyLute --version`. История
+изменений ведётся в [`CHANGELOG.md`](CHANGELOG.md).
+
+Текущая версия: **2.0.3** (три изменения с v2.0.0).
 
 ## Разработка
 
@@ -145,27 +171,31 @@ nuitka --standalone --onefile --windows-console-mode=disable hideMyLute/__main__
 
 ```
 hideMyLute/
-├── __init__.py          # Версия 2.0.0
-├── __main__.py          # Точка входа
-├── config.py            # AppConfig (frozen DC), константы, переводы
-├── crypto.py            # AES-256-GCM, PBKDF2-HMAC-SHA256
-├── exceptions.py        # Иерархия исключений
-├── footer.py            # Упаковка/распаковка футера
-├── logging_config.py    # Конфигурация логирования (NullHandler)
-├── steganography.py     # join_files, split_file, generate_output_path
-├── worker.py            # BackgroundWorker (threading)
+├── _version.py           # Версия 2.0.3 (единый источник версии)
+├── __init__.py           # Экспорт __version__
+├── __main__.py           # Точка входа (+ --version)
+├── config.py             # AppConfig (frozen DC), константы, переводы
+├── crypto.py             # AES-256-GCM, PBKDF2-HMAC-SHA256
+├── exceptions.py         # Иерархия исключений
+├── footer.py             # Упаковка/распаковка футера
+├── logging_config.py     # Конфигурация логирования (NullHandler)
+├── password_strength.py  # Оценка надёжности пароля
+├── steganography.py      # join_files, split_file, generate_output_path
+├── worker.py             # BackgroundWorker (threading)
 ├── ui/
 │   ├── __init__.py
-│   ├── join_panel.py    # Панель «Соединение»
-│   ├── main_window.py   # Главное окно с вкладками
-│   ├── split_panel.py   # Панель «Разделение»
-│   └── widgets.py       # Переиспользуемые виджеты
+│   ├── join_panel.py     # Панель «Соединение»
+│   ├── main_window.py    # Главное окно с вкладками
+│   ├── split_panel.py    # Панель «Разделение»
+│   └── widgets.py        # Переиспользуемые виджеты
 └── tests/
     ├── __init__.py
     ├── test_config.py
     ├── test_crypto.py
     ├── test_footer.py
-    └── test_steganography.py
+    ├── test_password_strength.py
+    ├── test_steganography.py
+    └── test_version.py
 ```
 
 ## Лицензия

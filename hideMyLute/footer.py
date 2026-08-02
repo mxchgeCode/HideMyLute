@@ -66,9 +66,17 @@ def pack_footer(
     container = Path(container_path)
 
     if not carrier.exists():
-        raise FooterError(f"Файл-носитель не найден: {carrier}")
+        raise FooterError(
+            f"Файл-носитель не найден: {carrier}",
+            msg_key="error_carrier_not_found",
+            path=str(carrier),
+        )
     if not container.exists():
-        raise FooterError(f"Файл-контейнер не найден: {container}")
+        raise FooterError(
+            f"Файл-контейнер не найден: {container}",
+            msg_key="error_container_not_found",
+            path=str(container),
+        )
 
 
     carrier_size = carrier.stat().st_size
@@ -126,7 +134,11 @@ def unpack_footer(
     combined = Path(combined_path)
 
     if not combined.exists():
-        raise FooterError(f"Файл не найден: {combined}")
+        raise FooterError(
+            f"Файл не найден: {combined}",
+            msg_key="error_file_not_found",
+            path=str(combined),
+        )
 
     file_size = combined.stat().st_size
 
@@ -137,25 +149,35 @@ def unpack_footer(
         header_data = fh.read(FOOTER_HEADER_SIZE)
 
     if len(header_data) < FOOTER_HEADER_SIZE:
-        raise FooterError("Файл слишком мал для содержания футера")
+        raise FooterError(
+            "Файл слишком мал для содержания футера",
+            msg_key="error_footer_too_small",
+        )
 
     magic, version, _flags, payload_len = struct.unpack(
         ">4sHHI", header_data
     )
 
     if magic != MAGIC_BYTES:
-        raise FooterError("Футер hideMyLute не найден в файле (неверная сигнатура)", msg_key="error_no_footer")
+        raise FooterError(
+            "Футер hideMyLute не найден в файле (неверная сигнатура)",
+            msg_key="error_no_footer",
+        )
 
     if version != FOOTER_VERSION:
         raise FooterError(
             f"Несовместимая версия футера: {version} "
-            f"(ожидается {FOOTER_VERSION})"
+            f"(ожидается {FOOTER_VERSION})",
+            msg_key="error_footer_version",
+            version=version,
+            expected=FOOTER_VERSION,
         )
 
     total_footer_size = FOOTER_HEADER_SIZE + payload_len
     if total_footer_size > file_size:
         raise FooterError(
-            "Заявленный размер футера превышает размер файла"
+            "Заявленный размер футера превышает размер файла",
+            msg_key="error_footer_too_large",
         )
 
     # Читаем payload
@@ -175,14 +197,17 @@ def unpack_footer(
         metadata = json.loads(metadata_json.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise FooterError(
-            "Не удалось распарсить метаданные футера"
+            "Не удалось распарсить метаданные футера",
+            msg_key="error_footer_parse",
         ) from exc
 
     required_keys = {"carrier_size", "container_size", "carrier_hash_sha256"}
     missing = required_keys - set(metadata.keys())
     if missing:
         raise FooterError(
-            f"В метаданных футера отсутствуют поля: {missing}"
+            f"В метаданных футера отсутствуют поля: {missing}",
+            msg_key="error_footer_fields",
+            fields=", ".join(sorted(missing)),
         )
 
     return metadata

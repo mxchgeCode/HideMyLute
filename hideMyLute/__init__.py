@@ -4,8 +4,10 @@
 использованием зашифрованного футера для метаданных.
 """
 
-__version__ = "2.0.0"
+from ._version import VERSION_STRING as __version__
+
 __all__ = [
+    "__version__",
     "config",
     "crypto",
     "exceptions",

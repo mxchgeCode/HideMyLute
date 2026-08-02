@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import customtkinter as ctk
@@ -12,7 +13,7 @@ from ..logging_config import setup_logging
 from ..worker import BackgroundWorker
 from .join_panel import JoinPanel
 from .split_panel import SplitPanel
-from .widgets import ProgressOverlay, StatusBar
+from .widgets import StatusBar
 
 
 class MainWindow(ctk.CTk):
@@ -23,8 +24,8 @@ class MainWindow(ctk.CTk):
     """
 
     APP_NAME = "hideMyLute"
-    WINDOW_WIDTH = 520
-    WINDOW_HEIGHT = 580
+    WINDOW_WIDTH = 660
+    WINDOW_HEIGHT = 700
 
     def __init__(
         self,
@@ -56,10 +57,17 @@ class MainWindow(ctk.CTk):
 
     def _setup_window(self) -> None:
         """Настраивает параметры окна."""
+        # Тема
+        ctk.set_appearance_mode("system")
+        ctk.set_default_color_theme("blue")
+
+        # Увеличение шрифта по умолчанию в 2 раза (13 → 26)
+        ctk.ThemeManager.theme["CTkFont"]["size"] = 26
+
         title = f"{self.APP_NAME} v{__version__}"
         self.title(title)
         self.geometry(f"{self.WINDOW_WIDTH}x{self.WINDOW_HEIGHT}")
-        self.minsize(480, 500)
+        self.minsize(580, 640)
 
         # Центрирование на экране
         self.update_idletasks()
@@ -68,10 +76,6 @@ class MainWindow(ctk.CTk):
         x = (screen_w - self.WINDOW_WIDTH) // 2
         y = (screen_h - self.WINDOW_HEIGHT) // 2
         self.geometry(f"+{x}+{y}")
-
-        # Тема
-        ctk.set_appearance_mode("system")
-        ctk.set_default_color_theme("blue")
 
     def _build_ui(self) -> None:
         """Строит интерфейс главного окна."""
@@ -90,6 +94,7 @@ class MainWindow(ctk.CTk):
 
         self._tabview.add(t("tab_join"))
         self._tabview.add(t("tab_split"))
+        self._tabview._segmented_button.configure(height=48)
 
         # Вкладка «Соединение»
         self._join_panel = JoinPanel(
@@ -97,8 +102,6 @@ class MainWindow(ctk.CTk):
             config=self._config,
             worker=self._worker,
             on_status=self._set_status,
-            progress_show=self._show_progress,
-            progress_hide=self._hide_progress,
         )
         self._join_panel.pack(fill="both", expand=True)
 
@@ -108,8 +111,6 @@ class MainWindow(ctk.CTk):
             config=self._config,
             worker=self._worker,
             on_status=self._set_status,
-            progress_show=self._show_progress,
-            progress_hide=self._hide_progress,
         )
         self._split_panel.pack(fill="both", expand=True)
 
@@ -119,10 +120,6 @@ class MainWindow(ctk.CTk):
             row=1, column=0, sticky="ew", padx=5, pady=5
         )
         self._set_status(t("status_not_ready"))
-
-        # Прогресс-оверлей (скрыт по умолчанию)
-        self._overlay = ProgressOverlay(self)
-        self._overlay.hide()
 
         # Выбор языка (правый верхний угол)
         self._build_language_selector()
@@ -139,7 +136,7 @@ class MainWindow(ctk.CTk):
         self._lang_label = ctk.CTkLabel(
             self._lang_frame,
             text=t("language_label"),
-            font=ctk.CTkFont(size=11),
+            font=ctk.CTkFont(size=22),
         )
         self._lang_label.pack(side="left", padx=(0, 5))
 
@@ -147,7 +144,8 @@ class MainWindow(ctk.CTk):
             self._lang_frame,
             values=["RU", "EN"],
             command=self._on_language_changed,
-            width=80,
+            width=110,
+            height=40,
         )
         self._lang_switch.pack(side="left")
         self._lang_switch.set("RU" if self._config.language == "ru" else "EN")
@@ -188,17 +186,15 @@ class MainWindow(ctk.CTk):
         else:
             self._split_panel.refresh_status()
 
-    def _set_status(self, text: str) -> None:
-        """Устанавливает текст статус-бара."""
-        self._status_bar.set_text(text)
+    def _set_status(self, text: str, click_path: Path | None = None) -> None:
+        """Устанавливает текст статус-бара.
 
-    def _show_progress(self, text: str) -> None:
-        """Показывает прогресс-оверлей."""
-        self._overlay.show(text)
-
-    def _hide_progress(self) -> None:
-        """Скрывает прогресс-оверлей."""
-        self._overlay.hide()
+        Args:
+            text: Текст статуса.
+            click_path: Путь к файлу результата; при клике по строке
+                        статуса открывается каталог с этим файлом.
+        """
+        self._status_bar.set_text(text, click_path)
 
     def _on_close(self) -> None:
         """Обработчик закрытия окна."""
