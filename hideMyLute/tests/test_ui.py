@@ -9,8 +9,8 @@ import pytest
 
 customtkinter = pytest.importorskip("customtkinter")
 
-from hideMyLute.config import AppConfig  # noqa: E402
-from hideMyLute.ui.main_window import MainWindow  # noqa: E402
+from hideMyLute.config import AppConfig
+from hideMyLute.ui.main_window import MainWindow
 
 
 @pytest.fixture

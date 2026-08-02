@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None) -> None:
         # GUI-импорт выполняется лениво, чтобы CLI не тянул customtkinter
         from hideMyLute.ui.main_window import MainWindow
 
-        config = AppConfig()
+        config = AppConfig.from_env()
         app = MainWindow(config=config)
         app.run()
         return

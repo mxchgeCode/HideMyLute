@@ -1,7 +1,0 @@
-[lint.per-file-ignores]
-# Имя пакета — устоявшийся бренд, не соответствует snake_case
-"hideMyLute/**" = ["N999"]
-# Тесты: NamedTemporaryFile без with — осознанно (Windows не даёт удалить открытый файл)
-"hideMyLute/tests/**" = ["SIM115"]
-# Воркер: перехват Exception как последняя инстанция с traceback для пользователя
-"hideMyLute/worker.py" = ["BLE001"]

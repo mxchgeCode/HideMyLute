@@ -160,19 +160,32 @@ ruff check hideMyLute/
 при работе и не оставляет следов (логирование отключено по умолчанию,
 конфигурационные файлы не создаются).
 
+Единственный поддерживаемый способ сборки — версионируемая спецификация
+`hideMyLute.spec` (она закоммичена, сборка воспроизводима):
+
 ```bash
-pip install pyinstaller
-pyinstaller --onefile --windowed --name hideMyLute \
-  --collect-data customtkinter launcher.py
+pip install -r requirements-dev.txt
+pyinstaller --noconfirm hideMyLute.spec
 ```
 
-Результат: один файл `dist/hideMyLute.exe`.
+или автоматизированный скрипт (устанавливает зависимости, прогоняет тесты
+и собирает исполняемый файл):
 
-Альтернативно, сборка с помощью Nuitka:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build.ps1
+```
+
+Результат: один файл `dist/hideMyLute.exe` (с ресурсом версии).
+
+### Командная строка
+
+Помимо GUI доступны CLI-подкоманды (пароль запрашивается интерактивно
+через getpass, если не передан флаг `--password`):
 
 ```bash
-pip install nuitka
-nuitka --standalone --onefile --windows-console-mode=disable launcher.py
+python -m hideMyLute join carrier.jpg container.bin out.jpg --password "secret"
+python -m hideMyLute split out.jpg --output-dir extracted
+python -m hideMyLute info out.jpg
 ```
 
 ## Безопасность

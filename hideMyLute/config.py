@@ -280,6 +280,30 @@ class AppConfig:
         """Возвращает объект локализации для текущего языка."""
         return Translations(self.language)
 
+    @classmethod
+    def from_env(cls) -> AppConfig:
+        """Создаёт конфигурацию из переменных окружения.
+
+        Поддерживаемые переменные (все опциональны, умолчания стелс-режима
+        сохраняются):
+        - ``HIDEMYLUTE_LANG`` — язык интерфейса ('ru' / 'en');
+        - ``HIDEMYLUTE_LOG_ENABLED`` — '1'/'true'/'yes' включает логирование;
+        - ``HIDEMYLUTE_LOG_FILE`` — путь к файлу лога.
+        """
+        import os
+
+        lang = os.environ.get("HIDEMYLUTE_LANG", "ru")
+        logging_enabled = os.environ.get(
+            "HIDEMYLUTE_LOG_ENABLED", ""
+        ).strip().lower() in ("1", "true", "yes")
+        log_file_raw = os.environ.get("HIDEMYLUTE_LOG_FILE")
+        log_file = Path(log_file_raw) if log_file_raw else None
+        return cls(
+            language=lang,
+            logging_enabled=logging_enabled,
+            log_file=log_file,
+        )
+
     def set_language(self, language: str) -> None:
         """Устанавливает язык интерфейса.
 
