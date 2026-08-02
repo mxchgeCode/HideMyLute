@@ -38,7 +38,7 @@ pip install -r requirements.txt
   PBKDF2HMAC
 - [`customtkinter`](https://customtkinter.tomschimansky.com) ≥ 6.0 —
   современный GUI на базе tkinter
-- `pytest`, `pytest-cov`, `ruff` — только для разработки
+- `pytest`, `pytest-cov`, `ruff`, `pyinstaller` — только для разработки
 
 ## Быстрый старт
 
@@ -60,7 +60,7 @@ from hideMyLute.steganography import join_files, split_file
 from hideMyLute.steganography import generate_output_path, NamingStrategy
 from hideMyLute import __version__
 
-print(__version__)  # 2.0.3
+print(__version__)  # 2.0.4
 
 # Соединение
 output = join_files(
@@ -90,7 +90,7 @@ path = generate_output_path(
 
 ```bash
 python -m hideMyLute --version
-# hideMyLute 2.0.3
+# hideMyLute 2.0.4
 ```
 
 ## Структура футера
@@ -130,7 +130,7 @@ python -m hideMyLute --version
 заголовке окна и через `python -m hideMyLute --version`. История
 изменений ведётся в [`CHANGELOG.md`](CHANGELOG.md).
 
-Текущая версия: **2.0.3** (три изменения с v2.0.0).
+Текущая версия: **2.0.4** (четыре изменения с v2.0.0).
 
 ## Разработка
 
@@ -152,11 +152,26 @@ pytest hideMyLute/tests/ --cov=hideMyLute --cov-report=term-missing
 ruff check hideMyLute/
 ```
 
-### Сборка одним файлом (Nuitka)
+### Сборка одним файлом (PyInstaller)
+
+Готовый автономный исполняемый файл: `dist/hideMyLute.exe`.
+Ему не нужен установленный Python, он не создаёт дополнительных файлов
+при работе и не оставляет следов (логирование отключено по умолчанию,
+конфигурационные файлы не создаются).
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --windowed --name hideMyLute \
+  --collect-data customtkinter launcher.py
+```
+
+Результат: один файл `dist/hideMyLute.exe`.
+
+Альтернативно, сборка с помощью Nuitka:
 
 ```bash
 pip install nuitka
-nuitka --standalone --onefile --windows-console-mode=disable hideMyLute/__main__.py
+nuitka --standalone --onefile --windows-console-mode=disable launcher.py
 ```
 
 ## Безопасность
@@ -170,8 +185,9 @@ nuitka --standalone --onefile --windows-console-mode=disable hideMyLute/__main__
 ## Архитектура
 
 ```
+launcher.py               # Точка входа для сборки исполняемого файла
 hideMyLute/
-├── _version.py           # Версия 2.0.3 (единый источник версии)
+├── _version.py           # Версия 2.0.4 (единый источник версии)
 ├── __init__.py           # Экспорт __version__
 ├── __main__.py           # Точка входа (+ --version)
 ├── config.py             # AppConfig (frozen DC), константы, переводы
