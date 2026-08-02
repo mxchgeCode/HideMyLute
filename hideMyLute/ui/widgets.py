@@ -11,6 +11,10 @@ from typing import Any
 
 import customtkinter as ctk
 
+from ..logging_config import get_logger
+
+logger = get_logger("widgets")
+
 
 def open_in_file_manager(path: str | Path) -> None:
     """Открывает каталог, содержащий файл, в файловом менеджере.
@@ -29,7 +33,9 @@ def open_in_file_manager(path: str | Path) -> None:
         else:
             subprocess.Popen(["xdg-open", str(target)])
     except OSError:
-        pass
+        # Открытие менеджера не критично для операции; фиксируем в лог
+        # (ранее ошибка молча игнорировалась)
+        logger.warning("Не удалось открыть файловый менеджер для %s", target)
 
 
 class FileSelector(ctk.CTkFrame):

@@ -13,15 +13,18 @@ from hideMyLute.config import AppConfig
 from hideMyLute.ui.main_window import MainWindow
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def app():
-    """Создаёт главное окно без отображения."""
+    """Создаёт главное окно (один Tk-интерпретатор на модуль).
+
+    Module-scope: повторное создание/уничтожение Tcl-интерпретаторов
+    в рамках одного процесса нестабильно (TclError).
+    """
     try:
-        root = customtkinter.CTk()
+        window = MainWindow(config=AppConfig())
     except Exception as exc:  # noqa: BLE001 - нет дисплея
         pytest.skip(f"no display available: {exc}")
-    root.withdraw()
-    window = MainWindow(config=AppConfig())
+    window.withdraw()
     window.update_idletasks()
     yield window
     window.destroy()

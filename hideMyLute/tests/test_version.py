@@ -52,18 +52,7 @@ class TestVersionFormat:
 
 
 class TestVersionHistory:
-    """Проверки соответствия версии количеству изменений."""
-
-    def test_patch_counts_changes_since_v2_0_0(self) -> None:
-        """PATCH = 4 — четыре изменения с релиза v2.0.0.
-
-        Изменения (см. git log --oneline v2.0.0..HEAD):
-        1. fix: значения по умолчанию в полях AppConfig
-        2. feat: оценка надёжности пароля и переключение языка
-        3. fix: выравнивание вкладки «Соединение» и статус-бар
-        4. build: автономный исполняемый файл (PyInstaller onefile)
-        """
-        assert _version.VERSION == (2, 0, 4)
+    """Проверки соответствия версии журналу изменений."""
 
     def test_version_documented_in_changelog(self) -> None:
         """Актуальная версия упомянута в CHANGELOG.md."""

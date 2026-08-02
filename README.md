@@ -61,7 +61,7 @@ from hideMyLute.steganography import join_files, split_file
 from hideMyLute.steganography import generate_output_path, NamingStrategy
 from hideMyLute import __version__
 
-print(__version__)  # 2.0.4
+print(__version__)  # 3.0.0
 
 # Соединение
 output = join_files(
@@ -91,7 +91,7 @@ path = generate_output_path(
 
 ```bash
 python -m hideMyLute --version
-# hideMyLute 2.0.4
+# hideMyLute 3.0.0
 ```
 
 ## Структура футера
@@ -131,7 +131,7 @@ python -m hideMyLute --version
 заголовке окна и через `python -m hideMyLute --version`. История
 изменений ведётся в [`CHANGELOG.md`](CHANGELOG.md).
 
-Текущая версия: **2.0.4** (четыре изменения с v2.0.0).
+Текущая версия: **3.0.0** (несовместимые изменения формата футера).
 
 ## Разработка
 
@@ -201,7 +201,7 @@ python -m hideMyLute info out.jpg
 ```
 launcher.py               # Точка входа для сборки исполняемого файла
 hideMyLute/
-├── _version.py           # Версия 2.0.4 (единый источник версии)
+├── _version.py           # Версия 3.0.0 (единый источник версии)
 ├── __init__.py           # Экспорт __version__
 ├── __main__.py           # Точка входа (+ --version)
 ├── config.py             # AppConfig (frozen DC), константы, переводы
