@@ -101,6 +101,7 @@ class TestAppConfig:
 
         config = AppConfig()
         with pytest.raises(FrozenInstanceError):
+            # noinspection PySetattr
             config.language = "en"
 
     def test_translations_class_used(self) -> None:
