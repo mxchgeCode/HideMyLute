@@ -102,10 +102,16 @@ def commit_and_push(version_str: str) -> None:
             check=True,
         )
         subprocess.run(["git", "push"], check=True)
-        subprocess.run(["git", "tag", f"v{version_str}"], check=True)
-        subprocess.run(["git", "push", "--tags"], check=True)
+        tag_name = f"v{version_str}"
+
+        # Force-update the tag if it already exists locally or remotely
+        subprocess.run(["git", "tag", "-d", tag_name], check=False)
+        subprocess.run(["git", "push", "origin", f":refs/tags/{tag_name}"], check=False)
+        subprocess.run(["git", "tag", tag_name], check=True)
+        subprocess.run(["git", "push", "origin", tag_name], check=True)
+
         print(f"Зафиксирована версия {version_str}")
-        print(f"Создан и отправлен тег v{version_str}")
+        print(f"Создан и отправлен тег {tag_name}")
     except subprocess.CalledProcessError as e:
         sys.exit(f"Git operation failed (return code {e.returncode}): {e.cmd}")
 
