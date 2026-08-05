@@ -49,4 +49,5 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     version=version_info,            # версия/описание в свойствах файла
+    icon='resources/666.ico',        # иконка приложения
 )

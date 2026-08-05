@@ -138,7 +138,7 @@ class JoinPanel(OperationPanel):
             return
         if self._completed_path is not None:
             self._on_status(
-                f"{t('status_completed_join')} \u2014 {self._completed_path}",
+                t('status_completed_join'),
                 click_path=self._completed_path,
             )
             return
@@ -266,7 +266,7 @@ class JoinPanel(OperationPanel):
         self._completed_path = result
         t = self._config.t
         self._on_status(
-            f"{t('status_completed_join')} \u2014 {result}",
+            t('status_completed_join'),
             click_path=result,
         )
         # Секрет не должен оставаться в памяти UI после завершения

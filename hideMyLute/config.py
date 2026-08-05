@@ -135,7 +135,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_empty_path": "Путь к файлу не может быть пустым.",
         "error_password_empty": "Пароль не может быть пустым.",
         "error_password_short": (
-            "Пароль должен быть не менее 4 символов."
+            "Пароль должен быть не менее 12 символов."
         ),
         "password_strength_weak": "Слабый",
         "password_strength_ok": "Приемлемый",
@@ -207,7 +207,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_empty_path": "File path cannot be empty.",
         "error_password_empty": "Password cannot be empty.",
         "error_password_short": (
-            "Password must be at least 4 characters."
+            "Password must be at least 12 characters."
         ),
         "password_strength_weak": "Weak",
         "password_strength_ok": "Acceptable",

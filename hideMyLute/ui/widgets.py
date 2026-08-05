@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tkinter.font as tkfont
 from pathlib import Path
 from tkinter import filedialog
 from typing import Any
@@ -202,20 +203,65 @@ class StatusBar(ctk.CTkFrame):
             parent: Родительский виджет.
             initial_text: Начальный текст статуса.
         """
-        super().__init__(parent, height=50, **kwargs)
+        super().__init__(parent, height=70, **kwargs)
 
         self._click_path: Path | None = None
 
-        self._label = ctk.CTkLabel(
+        self._text_label = ctk.CTkLabel(
             self,
             text=initial_text,
             anchor="w",
         )
-        self._default_color = self._label.cget("text_color")
-        self._label.pack(fill="x", padx=10, pady=8)
+        self._default_color = self._text_label.cget("text_color")
+        self._text_label.pack(fill="x", padx=10, pady=(8, 2))
 
-        self._label.bind("<Button-1>", self._on_click)
+        self._path_label = ctk.CTkLabel(
+            self,
+            text="",
+            anchor="w",
+        )
+        self._path_label.pack(fill="x", padx=10, pady=(2, 8))
+        self._path_label.pack_forget()
+
+        self._text_label.bind("<Button-1>", self._on_click)
+        self._path_label.bind("<Button-1>", self._on_click)
         self.bind("<Button-1>", self._on_click)
+
+        # Шрифт для измерения ширины текста
+        self._font = tkfont.Font(font=self._text_label.cget("font"))
+
+    def _truncate_path(self, path: Path) -> str:
+        """Усекает путь, если он превышает ширину статус-бара.
+
+        Args:
+            path: Путь к файлу.
+
+        Returns:
+            Усечённый или исходный путь.
+        """
+        path_str = str(path)
+        available_width = self.winfo_width() - 20  # padding слева и справа
+
+        # Если окно ещё не отрисовано — используем запасной вариант
+        if available_width <= 1:
+            available_width = 620
+
+        text_width = self._font.measure(path_str)
+        if text_width <= available_width:
+            return path_str
+
+        # Форматируем как [drive]:\...\[filename]
+        drive = path.drive
+        filename = path.name
+
+        if drive and filename:
+            truncated = f"{drive}\\...\\{filename}"
+            # Если и усечённый вариант не помещается — оставляем только имя
+            if self._font.measure(truncated) > available_width:
+                return filename
+            return truncated
+
+        return path_str
 
     def set_text(self, text: str, click_path: Path | None = None) -> None:
         """Устанавливает текст статуса.
@@ -225,14 +271,20 @@ class StatusBar(ctk.CTkFrame):
             click_path: Путь к файлу результата; строка становится
                         кликабельной и открывает каталог с файлом.
         """
-        self._label.configure(text=text)
-        self._click_path = click_path
+        self._text_label.configure(text=text)
+
         if click_path is None:
-            self._label.configure(
+            self._click_path = None
+            self._path_label.pack_forget()
+            self._text_label.configure(
                 cursor="arrow", text_color=self._default_color
             )
         else:
-            self._label.configure(
+            self._click_path = click_path
+            path_str = self._truncate_path(click_path)
+            self._path_label.configure(text=path_str)
+            self._path_label.pack(fill="x", padx=10, pady=(2, 8))
+            self._path_label.configure(
                 cursor="hand2", text_color=self.LINK_COLOR
             )
 

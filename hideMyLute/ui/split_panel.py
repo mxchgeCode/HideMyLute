@@ -98,7 +98,7 @@ class SplitPanel(OperationPanel):
             return
         if self._completed_path is not None:
             self._on_status(
-                f"{t('status_completed_split')} \u2014 {self._completed_path}",
+                t('status_completed_split'),
                 click_path=self._completed_path,
             )
             return
@@ -153,7 +153,7 @@ class SplitPanel(OperationPanel):
         self._completed_path = container_path
         t = self._config.t
         self._on_status(
-            f"{t('status_completed_split')} \u2014 {container_path}",
+            t('status_completed_split'),
             click_path=container_path,
         )
         # Секрет не должен оставаться в памяти UI после завершения
