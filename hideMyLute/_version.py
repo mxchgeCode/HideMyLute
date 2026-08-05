@@ -29,7 +29,7 @@ VERSION_MAJOR: int = 3
 VERSION_MINOR: int = 1
 """Минорная версия — новые возможности с предыдущего релиза."""
 
-VERSION_PATCH: int = 1
+VERSION_PATCH: int = 2
 """Количество изменений с предыдущего минорного релиза."""
 
 VERSION: tuple[int, int, int] = (
