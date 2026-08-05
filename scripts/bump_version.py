@@ -81,27 +81,30 @@ def update_changelog(major: int, minor: int, patch: int) -> None:
 
 
 def commit_and_push(version_str: str) -> None:
-    subprocess.run(["git", "config", "user.email", "dev@hidelute.local"], check=True)
-    subprocess.run(["git", "config", "user.name", "HideMyLute Dev"], check=True)
+    try:
+        subprocess.run(["git", "config", "user.email", "dev@hidelute.local"], check=True)
+        subprocess.run(["git", "config", "user.name", "HideMyLute Dev"], check=True)
 
-    subprocess.run(
-        ["git", "add", str(VERSION_FILE), str(PYPROJECT_FILE), str(CHANGELOG_FILE)],
-        check=True,
-    )
+        subprocess.run(
+            ["git", "add", str(VERSION_FILE), str(PYPROJECT_FILE), str(CHANGELOG_FILE)],
+            check=True,
+        )
 
-    result = subprocess.run(
-        ["git", "diff", "--cached", "--quiet"], capture_output=True
-    )
-    if result.returncode == 0:
-        print("Нет изменений для коммита")
-        return
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"], capture_output=True
+        )
+        if result.returncode == 0:
+            print("Нет изменений для коммита")
+            return
 
-    subprocess.run(
-        ["git", "commit", "-m", f"chore: bump version to {version_str} [skip ci]"],
-        check=True,
-    )
-    subprocess.run(["git", "push"], check=True)
-    print(f"Зафиксирована версия {version_str}")
+        subprocess.run(
+            ["git", "commit", "-m", f"chore: bump version to {version_str} [skip ci]"],
+            check=True,
+        )
+        subprocess.run(["git", "push"], check=True)
+        print(f"Зафиксирована версия {version_str}")
+    except subprocess.CalledProcessError as e:
+        sys.exit(f"Git operation failed (return code {e.returncode}): {e.cmd}")
 
 
 def main() -> None:

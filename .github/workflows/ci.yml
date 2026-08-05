@@ -36,10 +36,14 @@ jobs:
   build:
     name: Build (PyInstaller onefile)
     runs-on: windows-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
@@ -50,10 +54,7 @@ jobs:
       - name: Bump version for CI build
         if: github.ref == 'refs/heads/main'
         shell: pwsh
-        run: |
-          git config user.email "dev@hidelute.local"
-          git config user.name "HideMyLute Dev"
-          python scripts/bump_version.py --commit
+        run: python scripts/bump_version.py --commit
       - name: Set version from git tag
         shell: pwsh
         run: |
@@ -83,6 +84,12 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+      - name: Debug — show skipped reason
+        if: always()
+        run: |
+          echo "test status: ${{ job.test.conclusion }}"
+          echo "build status: ${{ job.build.conclusion }}"
+          echo "github.ref: ${{ github.ref }}"
       - name: Download executable
         uses: actions/download-artifact@v8
         with:
@@ -97,7 +104,7 @@ jobs:
           version = "${{ github.ref_name }}".removeprefix("v")
           text = open("CHANGELOG.md", encoding="utf-8").read()
           m = re.search(rf"## \[{re.escape(version)}\](.*?)(?=\n## \[|\Z)", text, re.S)
-          body = m.group(1).strip() if m else f"Релиз {version}."
+          body = m.group(1).strip() if m else f"Автоматический релиз версии {version}.\n\n_Заметки об изменениях будут добавлены после следующего пуша в main._"
           open("release_notes.md", "w", encoding="utf-8").write(f"## v{version}\n\n{body}\n")
           EOF
       - name: Create GitHub Release
