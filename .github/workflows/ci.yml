@@ -91,9 +91,6 @@ jobs:
           echo "build status: ${{ job.build.conclusion }}"
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_type: ${{ github.ref_type }}"
-          if (!startsWith(github.ref, 'refs/tags/v')) {
-            echo "::warning::Release job skipped: not a tag push. To trigger a release, push a version tag after the version bump: git tag vX.Y.Z && git push --tags"
-          }
       - name: Download executable
         uses: actions/download-artifact@v8
         with:
