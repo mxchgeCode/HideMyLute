@@ -78,12 +78,14 @@ jobs:
   release:
     name: Release
     needs: [test, build]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-tags: true
       - name: Debug — show skipped reason
         if: always()
         run: |
@@ -98,18 +100,27 @@ jobs:
           path: dist/
           merge-multiple: true
       - name: Extract changelog section
+        id: extract_changelog
         run: |
           python - <<'EOF'
           import re
+          from pathlib import Path
 
-          version = "${{ github.ref_name }}".removeprefix("v")
-          text = open("CHANGELOG.md", encoding="utf-8").read()
-          m = re.search(rf"## \[{re.escape(version)}\](.*?)(?=\n## \[|\Z)", text, re.S)
+          text = Path("hideMyLute/_version.py").read_text(encoding="utf-8")
+          major = re.search(r"VERSION_MAJOR: int = (\d+)", text).group(1)
+          minor = re.search(r"VERSION_MINOR: int = (\d+)", text).group(1)
+          patch = re.search(r"VERSION_PATCH: int = (\d+)", text).group(1)
+          version = f"{major}.{minor}.{patch}"
+
+          changelog_text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          m = re.search(rf"## \[{re.escape(version)}\](.*?)(?=\n## \[|\Z)", changelog_text, re.S)
           body = m.group(1).strip() if m else f"Автоматический релиз версии {version}.\n\n_Заметки об изменениях будут добавлены после следующего пуша в main._"
-          open("release_notes.md", "w", encoding="utf-8").write(f"## v{version}\n\n{body}\n")
+          Path("release_notes.md").write_text(f"## v{version}\n\n{body}\n", encoding="utf-8")
           EOF
+          echo "version=$(python -c "import re; text=open('hideMyLute/_version.py').read(); print('.'.join(re.search(r'VERSION_' + n + r': int = (\d+)', text).group(1) for n in ('MAJOR','MINOR','PATCH')))")" >> $GITHUB_OUTPUT
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: v${{ steps.extract_changelog.outputs.version }}
           files: dist/hideMyLute.exe
           body_path: release_notes.md
